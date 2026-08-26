@@ -1,0 +1,15 @@
+project_name = "terraform-advanced-configuration"
+
+environment = "dev"
+
+primary_region   = "us-east-1"
+secondary_region = "us-west-2"
+
+instance_type = "t3.micro"
+
+# Replace these with valid AMIs for the selected regions.
+
+primary_ami_id   = "ami-xxxxxxxxxxxxxxxxx"
+secondary_ami_id = "ami-yyyyyyyyyyyyyyyyy"
+
+create_secondary_instance = true
