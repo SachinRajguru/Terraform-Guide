@@ -1,7 +1,7 @@
 
-## 03 — Setting Up Terraform for AWS
+## Setting Up Terraform for AWS
 
-> **Path:** `Terraform-Guide/01-getting-started/`
+> **File:** `03-setting-up-terraform-for-aws.md`
 
 ## Table of Contents
 
