@@ -1,7 +1,7 @@
 
-## 01 — Terraform Fundamentals
+## Terraform Fundamentals
 
-> **Path:** `Terraform-Guide/01-getting-started/`
+> **File:** `01-fundamentals.md`
 
 ## Table of Contents
 
