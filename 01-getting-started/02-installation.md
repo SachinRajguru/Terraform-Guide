@@ -1,9 +1,9 @@
 
-## 02 — Terraform Installation
+## Terraform Installation
 
 ### Installing Terraform on Windows, Linux, macOS and GitHub Codespaces
 
-> **Path:** `Terraform-Guide/01-getting-started/`
+> **File:** `02-installation.md`
 
 ## Table of Contents
 
