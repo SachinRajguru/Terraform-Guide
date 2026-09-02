@@ -1,7 +1,7 @@
 
-## 04 — Writing the First Terraform Code, Lifecycle and State
+## Writing the First Terraform Code, Lifecycle and State
 
-> **Path:** `Terraform-Guide/01-getting-started/`
+> **File:** `04-first-terraform-code-lifecycle.md`
 
 ## Table of Contents
 
