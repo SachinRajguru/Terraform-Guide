@@ -1,7 +1,7 @@
 
 ## Project — AWS EC2 Instance Provisioning Using Terraform
 
-> **Path:** `Terraform-Guide/01-getting-started/project-ec2-instance/`
+> **File:** `README.md`
 
 ## Table of Contents
 
