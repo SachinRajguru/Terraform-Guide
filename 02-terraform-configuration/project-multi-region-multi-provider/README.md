@@ -1,318 +1,1344 @@
 
-## Project — `project-multi-region-multi-provider`
+## Multi-Region Multi-Provider Terraform Project
 
-Terraform Advanced Configuration — Multi-Region AWS Infrastructure with Variables, Conditional Expressions, Outputs, Functions, and Provider Configuration
+> **File:** `README.md`
+
+This project demonstrates how we can combine multiple Terraform configuration concepts into a practical Infrastructure as Code implementation.
+
+The project uses:
+
+* **AWS** as the primary cloud provider.
+* **AWS provider aliases** to deploy resources across multiple AWS regions.
+* **Azure** as a second cloud provider.
+* Variables for configurable infrastructure.
+* `.tfvars` for environment-specific values.
+* Conditional expressions for optional resource deployment.
+* Built-in Terraform functions for value transformation and selection.
+* Locals for reusable expressions.
+* Outputs for exposing resource information.
+* Provider aliases for explicit provider-to-resource mapping.
+
+The objective is not to build a production-ready multi-cloud platform. The objective is to understand **how Terraform configuration works when multiple providers, regions, variables, conditionals, and functions are used together.**
 
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Project Objectives](#2-project-objectives)
-3. [Prerequisites](#3-prerequisites)
-   - [Required Tools](#required-tools)
-4. [Project Files](#4-project-files)
-   - [`versions.tf`](#versionstf)
-   - [`providers.tf`](#providerstf)
-   - [`variables.tf`](#variablestf)
-   - [`main.tf`](#maintf)
-   - [`outputs.tf`](#outputstf)
-   - [`terraform.tfvars.example`](#terraformtfvarsexample)
-   - [`.gitignore`](#gitignore)
-5. [Project Execution](#5-project-execution)
-   - [Step 1 — Initialize](#step-1--initialize)
-   - [Step 2 — Format](#step-2--format)
-   - [Step 3 — Validate](#step-3--validate)
-   - [Step 4 — Plan](#step-4--plan)
-   - [Step 5 — Apply](#step-5--apply)
-   - [Step 6 — Inspect Outputs](#step-6--inspect-outputs)
-6. [Project Validation](#6-project-validation)
-   - [AWS Console Validation](#aws-console-validation)
-7. [Testing the Conditional Expression](#7-testing-the-conditional-expression)
-8. [Project Cleanup](#8-project-cleanup)
-9. [Project Troubleshooting](#9-project-troubleshooting)
-   - [Provider Authentication Error](#provider-authentication-error)
-   - [Invalid AMI](#invalid-ami)
-   - [Provider Alias Error](#provider-alias-error)
-   - [Variable Missing](#variable-missing)
-   - [State/Provider Error](#stateprovider-error)
-   - [Terraform Configuration Error](#terraform-configuration-error)
-10. [Professional Git Workflow](#10-professional-git-workflow)
-11. [Final Project Flow](#11-final-project-flow)
+2. [Learning Objectives](#2-learning-objectives)
+3. [Concepts Covered](#3-concepts-covered)
+4. [Architecture](#4-architecture)
+5. [Project Structure](#5-project-structure)
+6. [Prerequisites](#6-prerequisites)
+7. [Cloud Authentication](#7-cloud-authentication)
+8. [Terraform Configuration Design](#8-terraform-configuration-design)
+9. [Provider Configuration](#9-provider-configuration)
+10. [Variables](#10-variables)
+11. [Terraform Variable Values](#11-terraform-variable-values)
+12. [Locals and Built-in Functions](#12-locals-and-built-in-functions)
+13. [Conditional Resource Deployment](#13-conditional-resource-deployment)
+14. [Resource Deployment](#14-resource-deployment)
+15. [Outputs](#15-outputs)
+16. [Terraform Initialization](#16-terraform-initialization)
+17. [Terraform Formatting and Validation](#17-terraform-formatting-and-validation)
+18. [Terraform Plan](#18-terraform-plan)
+19. [Terraform Apply](#19-terraform-apply)
+20. [Verify the Deployment](#20-verify-the-deployment)
+21. [Understanding Provider Mapping](#21-understanding-provider-mapping)
+22. [Changing Regions](#22-changing-regions)
+23. [Changing Environments](#23-changing-environments)
+24. [Testing Conditional Deployment](#24-testing-conditional-deployment)
+25. [Troubleshooting](#25-troubleshooting)
+26. [Best Practices](#26-best-practices)
+27. [Cleanup and Destroy](#27-cleanup-and-destroy)
+28. [What We Learned](#28-what-we-learned)
+29. [Interview Questions](#29-interview-questions)
+30. [Summary](#30-summary)
 
 ## 1. Project Overview
 
-> This project brings the major concepts together into one reusable Terraform configuration.
+In the previous sections, we learned individual Terraform configuration concepts.
 
-The project demonstrates:
-
-* Provider configuration
-* Explicit provider requirements
-* AWS provider aliases
-* Multi-region infrastructure
-* Input variables
-* Output values
-* `.tfvars` configuration
-* Conditional expressions
-* Built-in functions
-* Terraform formatting
-* Terraform validation
-* Terraform planning
-* Terraform apply
-* Terraform debugging
-* Professional Terraform file organization
-* Resource cleanup
-
-The architecture follows this model:
+We covered:
 
 ```text
-                         Terraform Configuration
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │                           │
-              AWS Provider                 Variables
-                    │                           │
-          ┌─────────┴─────────┐                 │
-          │                   │                 │
-    aws.us_east_1       aws.us_west_2           │
-          │                   │                 │
-          ▼                   ▼                 ▼
-   EC2 Instance A      EC2 Instance B    terraform.tfvars
-          │                   │
-          └─────────┬─────────┘
-                    │
-                 Outputs
-                    │
-                    ▼
-             Instance IDs/IPs
+Providers
+    ↓
+Multiple Providers
+    ↓
+Multiple Regions
+    ↓
+Required Providers
+    ↓
+Variables
+    ↓
+.tfvars
+    ↓
+Conditional Expressions
+    ↓
+Built-in Functions
 ```
 
-> **Note:** The project uses a default AWS provider configuration for the primary region and an aliased AWS provider configuration for the secondary region. The alias allows resources to explicitly select the secondary region.
+Now we combine these concepts into a single project.
 
-## 2. Project Objectives
+The project follows this general flow:
 
-By completing this project, we should be able to:
+```text
+                    Terraform Configuration
+                              │
+                              ▼
+                      Required Providers
+                              │
+                 ┌────────────┴────────────┐
+                 │                         │
+                 ▼                         ▼
+              AWS Provider            Azure Provider
+                 │
+        ┌────────┴────────┐
+        │                 │
+        ▼                 ▼
+     AWS Region 1      AWS Region 2
+        │                 │
+        ▼                 ▼
+     EC2 Instance      EC2 Instance
 
-1. Configure Terraform providers correctly.
-2. Declare provider source and version constraints.
-3. Configure multiple AWS regions.
-4. Assign provider aliases to resources.
-5. Parameterize infrastructure using variables.
-6. Supply variable values through `.tfvars`.
-7. Produce useful Terraform outputs.
-8. Apply conditional expressions.
-9. Use Terraform built-in functions.
-10. Format and validate Terraform code.
-11. Diagnose configuration problems.
-12. Destroy all resources after practice.
+                              │
+                              ▼
+                      Conditional Logic
+                              │
+                              ▼
+                    Environment Selection
+                              │
+                              ▼
+                      Terraform Outputs
+```
 
-## 3. Prerequisites
+The same Terraform configuration can therefore manage resources across multiple provider configurations.
 
-### Required tools
+## 2. Learning Objectives
 
-| Tool                        | Recommended baseline               |
-| --------------------------- | ---------------------------------- |
-| Terraform CLI               | 1.15.9                             |
-| AWS CLI                     | Current stable release             |
-| Git                         | Current stable release             |
-| VS Code                     | Current stable release             |
-| Terraform VS Code extension | Current                            |
-| AWS account                 | Required for AWS resource creation |
-| AWS credentials             | Configured securely                |
+By completing this project, we will understand how to:
 
-> **Version note:** Terraform 1.15.9 is used as the current stable 1.15 patch baseline for this project. Version availability changes over time, so production projects should verify the currently supported Terraform release before implementation.
+* Configure multiple Terraform providers.
+* Configure multiple AWS provider instances.
+* Use provider aliases.
+* Deploy resources to different AWS regions.
+* Configure Azure alongside AWS.
+* Define provider version requirements.
+* Create reusable input variables.
+* Validate variable values.
+* Use `.tfvars` files.
+* Use locals.
+* Use built-in Terraform functions.
+* Use conditional expressions.
+* Explicitly map resources to providers.
+* Generate useful outputs.
+* Execute the complete Terraform workflow.
+* Validate infrastructure before deployment.
+* Change configuration without rewriting resource definitions.
+* Safely destroy the resources after practice.
 
-AWS credentials should **not** be hard-coded in Terraform configuration.
+## 3. Concepts Covered
 
-The AWS provider supports several credential mechanisms, including environment variables, shared AWS configuration/credentials files, IAM roles, web identity/OIDC, and other AWS-supported authentication mechanisms.
+This project brings together the concepts from the previous documentation files.
 
-For example:
+| Topic                   | File                            | Demonstrated In This Project                            |
+| ----------------------- | ------------------------------- | ------------------------------------------------------- |
+| Providers               | `01-providers.md`               | AWS and Azure                                           |
+| Multiple Providers      | `02-multiple-providers.md`      | Multiple provider configurations                        |
+| Multiple Regions        | `03-multiple-regions.md`        | AWS regional provider aliases                           |
+| Required Providers      | `04-required-providers.md`      | `versions.tf`                                           |
+| Variables               | `05-variables.md`               | `variables.tf`                                          |
+| `.tfvars`               | `06-tfvars.md`                  | `terraform.tfvars`                                      |
+| Conditional Expressions | `07-conditional-expressions.md` | Optional Azure deployment                               |
+| Built-in Functions      | `08-built-in-functions.md`      | `lower`, `trimspace`, `format`, `merge`, `lookup`, etc. |
+
+## 4. Architecture
+
+### 4.1 High-Level Architecture
+
+```text
+                           Terraform
+                               │
+                               │
+                    ┌──────────┴──────────┐
+                    │                     │
+                    ▼                     ▼
+                   AWS                  Azure
+                    │                     │
+          ┌─────────┴─────────┐           │
+          │                   │           │
+          ▼                   ▼           ▼
+      us-east-1           us-west-2  Resource Group
+          │                   │
+          ▼                   ▼
+    EC2 Instance        EC2 Instance
+```
+
+### 4.2 AWS Provider Configuration
+
+We will create two AWS provider configurations:
+
+```text
+AWS Provider
+│
+├── default
+│     └── us-east-1
+│
+└── west
+      └── us-west-2
+```
+
+The second provider configuration uses an alias:
+
+```hcl
+alias = "west"
+```
+
+Resources can then explicitly select the required provider.
+
+### 4.3 Azure Provider
+
+Azure will use its own provider:
+
+```text
+Azure Provider
+      │
+      ▼
+Azure Resource Group
+```
+
+This demonstrates that a single Terraform configuration can use more than one provider.
+
+## 5. Project Structure
+
+The final project structure is:
+
+```text
+project-multi-region-multi-provider/
+│
+├── README.md
+│
+├── versions.tf
+├── providers.tf
+├── variables.tf
+├── terraform.tfvars.example
+├── main.tf
+└── outputs.tf
+```
+
+After Terraform initialization, additional local files/directories may appear:
+
+```text
+project-multi-region-multi-provider/
+│
+├── .terraform/
+├── .terraform.lock.hcl
+│
+├── README.md
+├── versions.tf
+├── providers.tf
+├── variables.tf
+├── terraform.tfvars.example
+├── main.tf
+└── outputs.tf
+```
+
+#### Important
+
+`.terraform/` is generated by Terraform and should normally **not** be committed to Git.
+
+`.terraform.lock.hcl` should normally be committed because it records the selected provider dependency versions.
+
+## 6. Prerequisites
+
+Before executing the project, we should have:
+
+### Required Tools
+
+* Terraform
+* AWS CLI
+* Azure CLI
+* Git
+
+Verify Terraform:
+
+```bash
+terraform version
+```
+
+Verify AWS CLI:
+
+```bash
+aws --version
+```
+
+Verify Azure CLI:
+
+```bash
+az version
+```
+
+Verify Git:
+
+```bash
+git --version
+```
+
+### 6.1 Required Cloud Access
+
+We need valid credentials for:
+
+```text
+AWS
+Azure
+```
+
+The identities used by Terraform must have sufficient permissions to create and destroy the resources used in this project.
+
+For a learning environment, we should use dedicated lab accounts or appropriately scoped identities rather than unnecessarily broad production credentials.
+
+## 7. Cloud Authentication
+
+Terraform providers need credentials to communicate with the cloud platforms.
+
+### 7.1 AWS Authentication
+
+We can authenticate using the AWS CLI:
+
+```bash
+aws configure
+```
+
+Then verify:
 
 ```bash
 aws sts get-caller-identity
 ```
 
-This allows us to verify that the AWS CLI can authenticate successfully before we troubleshoot Terraform authentication.
+The command should return information about the authenticated AWS identity.
 
-## 4. Project Files
+### 7.2 Azure Authentication
 
-A recommended project structure is:
+Authenticate with Azure:
+
+```bash
+az login
+```
+
+Verify:
+
+```bash
+az account show
+```
+
+If multiple Azure subscriptions are available, select the required subscription:
+
+```bash
+az account set --subscription "<SUBSCRIPTION_ID_OR_NAME>"
+```
+
+Verify again:
+
+```bash
+az account show
+```
+
+### 7.3 Security Note
+
+We should **not** place cloud credentials directly inside:
 
 ```text
-project-multi-region-multi-provider/
+providers.tf
+terraform.tfvars
+main.tf
+```
+
+For example, avoid committing:
+
+```hcl
+access_key = "..."
+secret_key = "..."
+```
+
+or other sensitive credentials.
+
+Use supported authentication mechanisms such as:
+
+* AWS CLI credentials.
+* AWS environment variables.
+* IAM roles.
+* Azure CLI authentication.
+* Managed identities.
+* Workload identities.
+* CI/CD identity mechanisms.
+
+## 8. Terraform Configuration Design
+
+The project separates Terraform configuration into logical files.
+
+```text
+versions.tf
+    │
+    └── Terraform and provider requirements
+
+providers.tf
+    │
+    └── Provider configurations
+
+variables.tf
+    │
+    └── Input definitions
+
+terraform.tfvars
+    │
+    └── Input values
+
+main.tf
+    │
+    └── Infrastructure resources
+
+outputs.tf
+    │
+    └── Deployment information
+```
+
+This separation improves readability and maintainability.
+
+Terraform automatically loads all `.tf` files in the same directory as a single configuration.
+
+The filenames therefore provide **organizational structure**, not execution order.
+
+## 9. Provider Configuration
+
+We will configure:
+
+* AWS default provider → `us-east-1`
+* AWS aliased provider → `us-west-2`
+* Azure provider → selected subscription
+
+Example provider relationships:
+
+```text
+aws
 │
-├── versions.tf
-├── providers.tf
-├── variables.tf
-├── main.tf
-├── outputs.tf
-├── terraform.tfvars.example
-└── .gitignore
+├── default
+│     └── us-east-1
+│
+└── west
+      └── us-west-2
+
+azurerm
+└── Azure subscription
 ```
 
-The purpose of the files is:
-
-| File                       | Purpose                                                 |
-| -------------------------- | ------------------------------------------------------- |
-| `versions.tf`              | Terraform and provider requirements                     |
-| `providers.tf`             | AWS provider configurations                             |
-| `variables.tf`             | Input variable declarations                             |
-| `main.tf`                  | AWS infrastructure resources                            |
-| `outputs.tf`               | Values returned after deployment                        |
-| `terraform.tfvars.example` | Example variable values                                 |
-| `.gitignore`               | Prevents generated/sensitive files from being committed |
-
-### `versions.tf`
-
-```hcl
-terraform {
-  # Terraform version constraint for this project.
-  required_version = "~> 1.15.0"
-
-  required_providers {
-    aws = {
-      source = "hashicorp/aws"
-
-      # Allow compatible AWS provider 6.x releases.
-      version = "~> 6.0"
-    }
-  }
-}
-```
-
-The `required_providers` block is the modern location for provider source addresses and version constraints.
-
-The AWS provider source is:
+The actual provider configuration will be implemented in:
 
 ```text
-hashicorp/aws
+providers.tf
 ```
 
-The `~> 6.0` constraint allows compatible AWS provider 6.x releases while preventing an automatic move to a future incompatible major version.
+The provider requirements will be implemented in:
 
-> **Historical note:** Older Terraform material sometimes placed provider version constraints inside the `provider` block. That approach is deprecated. Modern Terraform configurations should declare provider source and version constraints inside `terraform.required_providers`.
+```text
+versions.tf
+```
 
-### `providers.tf`
+This follows the organizational approach established in the previous sections.
+
+## 10. Variables
+
+The project uses variables for values that may change between deployments.
+
+Typical values include:
+
+```text
+AWS region
+AWS secondary region
+Azure location
+Project name
+Environment
+AMI IDs
+Instance types
+Azure deployment flag
+```
+
+Instead of hardcoding these values throughout the configuration, we define them once in `variables.tf`.
+
+### 10.1 Environment
+
+The environment can be:
+
+```text
+dev
+staging
+prod
+```
+
+The variable validation ensures that invalid environments are rejected before deployment.
+
+For example:
+
+```text
+development
+production
+testing
+```
+
+would not be accepted if they are outside the defined allowed values.
+
+## 11. Terraform Variable Values
+
+The project includes:
+
+```text
+terraform.tfvars.example
+```
+
+This file demonstrates the expected variable values.
+
+We can create our local file:
+
+```text
+terraform.tfvars
+```
+
+from the example:
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item terraform.tfvars.example terraform.tfvars
+```
+
+We then update the values for our environment.
+
+### 11.1 Why Use `.tfvars`?
+
+Separating variable definitions from variable values allows the same Terraform configuration to be reused.
+
+For example:
+
+```text
+Development
+    │
+    └── terraform.tfvars
+
+Staging
+    │
+    └── staging.tfvars
+
+Production
+    │
+    └── production.tfvars
+```
+
+The Terraform configuration does not need to be duplicated.
+
+### 11.2 Do Not Commit Sensitive Values
+
+If `terraform.tfvars` contains sensitive information, it should not be committed.
+
+A typical `.gitignore` entry is:
+
+```gitignore
+terraform.tfvars
+*.tfvars
+```
+
+while keeping:
+
+```text
+terraform.tfvars.example
+```
+
+in Git.
+
+## 12. Locals and Built-in Functions
+
+The project uses locals to centralize calculated values.
+
+For example:
+
+```text
+Project Name
+      │
+      ▼
+trimspace()
+      │
+      ▼
+lower()
+      │
+      ▼
+replace()
+      │
+      ▼
+Normalized Project Name
+```
+
+Then:
+
+```text
+Normalized Project Name
+          +
+    Environment
+          +
+    Resource Type
+          │
+          ▼
+       format()
+          │
+          ▼
+    Resource Name
+```
+
+### 12.1 Example
+
+A resource name can be generated using:
 
 ```hcl
-# Default AWS provider configuration.
-# This provider targets the primary region.
+format(
+  "%s-%s-instance",
+  local.normalized_project_name,
+  local.environment
+)
+```
 
-provider "aws" {
-  region = var.primary_region
+Instead of manually writing:
 
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-    }
-  }
+```text
+terraform-dev-instance
+terraform-prod-instance
+```
+
+for every environment.
+
+### 12.2 Environment-Specific Instance Type
+
+A map can be used:
+
+```hcl
+{
+  dev     = "t3.micro"
+  staging = "t3.small"
+  prod    = "t3.large"
 }
+```
 
-# Additional AWS provider configuration.
-# The alias allows resources to explicitly use this region.
+and `lookup()` can select the appropriate value.
 
-provider "aws" {
-  alias  = "secondary"
-  region = var.secondary_region
+Conceptually:
 
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-    }
-  }
+```text
+    environment
+        │
+        ▼
+     lookup()
+        │
+  ┌─────┼─────────────┐
+  │     │             │
+ dev  staging       prod
+  │     │             │
+  ▼     ▼             ▼
+micro small         large
+```
+
+This demonstrates how functions can replace repetitive conditional expressions when a simple lookup table is more appropriate.
+
+## 13. Conditional Resource Deployment
+
+We will also demonstrate Terraform conditional expressions.
+
+For example, Azure deployment can be controlled by:
+
+```hcl
+variable "deploy_azure" {
+  type    = bool
+  default = true
 }
 ```
 
-> Provider aliases are the standard Terraform mechanism for multiple configurations of the same provider, such as different AWS regions.
-
-The first provider configuration is the **default provider configuration**.
-
-The second provider configuration has:
+Then the resource can use:
 
 ```hcl
-alias = "secondary"
+count = var.deploy_azure ? 1 : 0
 ```
 
-Therefore, resources can explicitly select it using:
+Conceptually:
+
+```text
+deploy_azure
+     │
+     ├── true
+     │     └── Create Azure resource
+     │
+     └── false
+           └── Do not create Azure resource
+```
+
+This allows the same configuration to support different deployment scenarios.
+
+## 14. Resource Deployment
+
+The project contains resources across:
+
+```text
+AWS us-east-1
+AWS us-west-2
+Azure
+```
+
+The AWS resources explicitly select their providers.
+
+For example:
 
 ```hcl
-provider = aws.secondary
+resource "aws_instance" "east" {
+  provider = aws
+
+  # configuration
+}
 ```
 
-The architecture is:
+and:
+
+```hcl
+resource "aws_instance" "west" {
+  provider = aws.west
+
+  # configuration
+}
+```
+
+The important distinction is:
+
+```text
+aws
+    │
+    └── default AWS provider configuration
+
+aws.west
+    │
+    └── aliased AWS provider configuration
+```
+
+The resource therefore knows exactly which provider configuration it should use.
+
+### 14.1 Provider-to-Resource Mapping
+
+The architecture becomes:
+
+```text
+                         Terraform
+                             │
+                ┌────────────┼────────────┐
+                │            │            │
+                ▼            ▼            ▼
+               aws        aws.west     azurerm
+                │            │            │
+                ▼            ▼            ▼
+           us-east-1      us-west-2     Azure
+                │            │            │
+                ▼            ▼            ▼
+               EC2          EC2     Resource Group
+```
+
+This explicit mapping is one of the most important concepts demonstrated by the project.
+
+## 15. Outputs
+
+The project exposes useful information using `outputs.tf`.
+
+Examples include:
+
+```text
+AWS East Instance ID
+AWS West Instance ID
+AWS East Public IP
+AWS West Public IP
+Azure Resource Group Name
+Generated Resource Names
+```
+
+After deployment:
+
+```bash
+terraform output
+```
+
+can be used to display the results.
+
+A specific output can also be queried:
+
+```bash
+terraform output aws_east_instance_id
+```
+
+## 16. Terraform Initialization
+
+Once the project files are ready, move into the project directory:
+
+```bash
+cd project-multi-region-multi-provider
+```
+
+Initialize Terraform:
+
+```bash
+terraform init
+```
+
+Terraform will:
+
+1. Read the configuration.
+2. Identify required providers.
+3. Download the required providers.
+4. Initialize the working directory.
+5. Create or update `.terraform.lock.hcl`.
+
+Expected output will indicate successful initialization.
+
+## 17. Terraform Formatting and Validation
+
+### 17.1 Format
+
+Run:
+
+```bash
+terraform fmt
+```
+
+To check which files would be changed without modifying them:
+
+```bash
+terraform fmt -check
+```
+
+### 17.2 Validate
+
+Run:
+
+```bash
+terraform validate
+```
+
+Expected result:
+
+```text
+Success! The configuration is valid.
+```
+
+Validation checks the Terraform configuration structure and expression correctness.
+
+It does not replace `terraform plan`.
+
+## 18. Terraform Plan
+
+Before creating infrastructure, generate a plan:
+
+```bash
+terraform plan
+```
+
+Terraform evaluates:
+
+```text
+Variables
+    │
+    ▼
+Locals
+    │
+    ▼
+Functions
+    │
+    ▼
+Conditionals
+    │
+    ▼
+Provider Mapping
+    │
+    ▼
+Resources
+    │
+    ▼
+Execution Plan
+```
+
+Review the plan carefully.
+
+We should verify that:
+
+* The expected AWS regions are used.
+* The expected AWS resources are planned.
+* The Azure resource is included or excluded as expected.
+* Instance types are correct.
+* Resource names are correct.
+* Tags are correct.
+* No unexpected resource changes are shown.
+
+## 19. Terraform Apply
+
+Once the plan has been reviewed:
+
+```bash
+terraform apply
+```
+
+Terraform displays the proposed changes again.
+
+Confirm the operation when prompted.
+
+Terraform then creates the resources.
+
+The deployment may look conceptually like:
 
 ```text
 Terraform
-   │
-   ├── AWS default provider
-   │      │
-   │      └── primary_region
-   │
-   └── AWS secondary provider
-          │
-          └── secondary_region
+    │
+    ├── AWS us-east-1
+    │      └── EC2
+    │
+    ├── AWS us-west-2
+    │      └── EC2
+    │
+    └── Azure
+            └── Resource Group
 ```
 
-### `variables.tf`
+## 20. Verify the Deployment
+
+After a successful deployment, verify the Terraform outputs:
+
+```bash
+terraform output
+```
+
+### 20.1 Verify AWS
+
+Verify the current AWS identity:
+
+```bash
+aws sts get-caller-identity
+```
+
+Then verify the resources in the appropriate AWS regions using the AWS CLI or AWS Console.
+
+For example:
+
+```bash
+aws ec2 describe-instances --region us-east-1
+```
+
+and:
+
+```bash
+aws ec2 describe-instances --region us-west-2
+```
+
+### 20.2 Verify Azure
+
+List resource groups:
+
+```bash
+az group list --output table
+```
+
+We should see the resource group created by Terraform.
+
+## 21. Understanding Provider Mapping
+
+Provider aliases are especially important when multiple configurations of the same provider are required.
+
+Consider:
 
 ```hcl
-variable "project_name" {
-  type        = string
-  description = "Name of the Terraform project."
-  default     = "terraform-advanced-configuration"
-}
-
-variable "environment" {
-  type        = string
-  description = "Deployment environment."
-  default     = "dev"
-
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be dev, staging, or prod."
-  }
-}
-
-variable "primary_region" {
-  type        = string
-  description = "Primary AWS region."
-  default     = "us-east-1"
-}
-
-variable "secondary_region" {
-  type        = string
-  description = "Secondary AWS region."
-  default     = "us-west-2"
-}
-
-variable "instance_type" {
-  type        = string
-  description = "EC2 instance type."
-  default     = "t3.micro"
-}
-
-variable "primary_ami_id" {
-  type        = string
-  description = "AMI ID for the primary AWS region."
-}
-
-variable "secondary_ami_id" {
-  type        = string
-  description = "AMI ID for the secondary AWS region."
-}
-
-variable "create_secondary_instance" {
-  type        = bool
-  description = "Whether to create the secondary-region EC2 instance."
-  default     = true
+provider "aws" {
+  region = "us-east-1"
 }
 ```
 
-Terraform supports variable type constraints, defaults, validation, sensitivity, nullability, and other variable controls.
+This is the default AWS provider.
 
-The `environment` variable demonstrates input validation:
+Then:
+
+```hcl
+provider "aws" {
+  alias  = "west"
+  region = "us-west-2"
+}
+```
+
+This creates another AWS provider configuration.
+
+The resources then select the desired configuration.
+
+### Default Provider
+
+```hcl
+resource "aws_instance" "east" {
+  provider = aws
+}
+```
+
+### Aliased Provider
+
+```hcl
+resource "aws_instance" "west" {
+  provider = aws.west
+}
+```
+
+This is the fundamental mechanism Terraform uses for multi-region AWS configurations.
+
+## 22. Changing Regions
+
+One benefit of provider configuration is that region information can be separated from the resource definition.
+
+Instead of changing:
+
+```hcl
+resource "aws_instance" "example" {
+  # resource configuration
+}
+```
+
+we can change the provider configuration:
+
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+to another supported region.
+
+However, we should understand that changing a resource's region generally means Terraform will manage a different remote object because cloud resources are regional.
+
+Before making such a change in a real environment, we should review the plan carefully.
+
+## 23. Changing Environments
+
+We can change the environment through:
+
+```text
+terraform.tfvars
+```
+
+For example:
+
+```hcl
+environment = "dev"
+```
+
+can become:
+
+```hcl
+environment = "prod"
+```
+
+The same Terraform configuration can then calculate:
+
+```text
+Different resource names
+Different instance types
+Different tags
+Different conditional behavior
+```
+
+depending on the configuration.
+
+This demonstrates one of the major benefits of Infrastructure as Code:
+
+> The configuration describes infrastructure logic while variable values control deployment-specific behavior.
+
+## 24. Testing Conditional Deployment
+
+Suppose:
+
+```hcl
+deploy_azure = true
+```
+
+Terraform plans the Azure resource.
+
+If we change:
+
+```hcl
+deploy_azure = false
+```
+
+the Azure resource is no longer included in the desired configuration.
+
+Run:
+
+```bash
+terraform plan
+```
+
+and inspect the proposed changes.
+
+This demonstrates how conditional expressions affect the Terraform resource graph.
+
+## 25. Troubleshooting
+
+### 25.1 Provider Authentication Error
+
+#### Symptom
+
+Terraform cannot authenticate with AWS or Azure.
+
+#### Check AWS
+
+```bash
+aws sts get-caller-identity
+```
+
+#### Check Azure
+
+```bash
+az account show
+```
+
+If authentication is invalid, authenticate again using the appropriate mechanism.
+
+### 25.2 AWS Region Does Not Support the Selected AMI
+
+An AMI is generally region-specific.
+
+An AMI ID that works in:
+
+```text
+us-east-1
+```
+
+may not be valid in:
+
+```text
+us-west-2
+```
+
+We should therefore provide an appropriate AMI ID for each region.
+
+Do not assume that the same AMI ID is valid across AWS regions.
+
+### 25.3 Azure Subscription Not Selected
+
+Check:
+
+```bash
+az account show
+```
+
+If required:
+
+```bash
+az account set --subscription "<SUBSCRIPTION_ID_OR_NAME>"
+```
+
+### 25.4 Invalid Environment
+
+If we configure:
+
+```hcl
+environment = "testing"
+```
+
+while the validation allows only:
+
+```text
+dev
+staging
+prod
+```
+
+Terraform will report a variable validation error.
+
+Use one of the permitted values.
+
+### 25.5 Incorrect Provider Alias
+
+Incorrect:
+
+```hcl
+provider = aws.west1
+```
+
+when the provider is actually:
+
+```hcl
+alias = "west"
+```
+
+Correct:
+
+```hcl
+provider = aws.west
+```
+
+The alias must match exactly.
+
+### 25.6 Terraform State Already Contains Resources
+
+If we change configuration after applying it, Terraform compares:
+
+```text
+Configuration
+      +
+State
+      +
+Remote Infrastructure
+```
+
+and determines what needs to change.
+
+Always review:
+
+```bash
+terraform plan
+```
+
+before applying changes.
+
+### 25.7 Unexpected Resource Destruction
+
+Never blindly execute:
+
+```bash
+terraform apply
+```
+
+when a plan shows unexpected deletions or replacements.
+
+First determine:
+
+* What changed?
+* Did the provider change?
+* Did the region change?
+* Did a resource argument change?
+* Did a variable change?
+* Did a provider alias change?
+* Did the state change?
+
+Then decide whether the proposed change is intentional.
+
+## 26. Best Practices
+
+### 26.1 Separate Provider Requirements From Configuration
+
+Use:
+
+```text
+versions.tf
+```
+
+for:
+
+```hcl
+terraform {
+  required_providers {
+    ...
+  }
+}
+```
+
+and:
+
+```text
+providers.tf
+```
+
+for:
+
+```hcl
+provider "aws" {
+  ...
+}
+```
+
+This keeps the configuration organized.
+
+### 26.2 Use Provider Aliases for Multiple Regions
+
+For multi-region AWS deployments, explicitly define provider aliases.
+
+Example:
+
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+
+provider "aws" {
+  alias  = "west"
+  region = "us-west-2"
+}
+```
+
+Then explicitly map resources:
+
+```hcl
+provider = aws.west
+```
+
+### 26.3 Keep Environment Values in Variables
+
+Avoid hardcoding:
+
+```hcl
+environment = "prod"
+```
+
+throughout the configuration.
+
+Instead:
+
+```hcl
+var.environment
+```
+
+should drive environment-specific behavior.
+
+### 26.4 Use Locals for Repeated Expressions
+
+If an expression is used multiple times, consider a local.
+
+For example:
+
+```hcl
+locals {
+  environment = lower(trimspace(var.environment))
+}
+```
+
+Then use:
+
+```hcl
+local.environment
+```
+
+throughout the configuration.
+
+### 26.5 Use Functions to Reduce Duplication
+
+Instead of manually creating:
+
+```text
+terraform-dev-instance
+terraform-staging-instance
+terraform-prod-instance
+```
+
+generate names dynamically.
+
+This improves reuse.
+
+### 26.6 Validate Inputs Early
+
+Use variable validation to catch invalid values before infrastructure deployment.
+
+For example:
 
 ```hcl
 validation {
@@ -325,529 +1351,62 @@ validation {
 }
 ```
 
-Therefore, values such as:
+### 26.7 Review the Plan
 
-```text
-dev
-staging
-prod
+The recommended workflow is:
+
+```bash
+terraform fmt
+terraform validate
+terraform plan
+terraform apply
 ```
 
-are accepted, while an unexpected value such as:
+We should understand the plan before applying it.
 
-```text
-testing
-```
+### 26.8 Do Not Commit Secrets
 
-will fail validation.
-
-### `main.tf`
-
-```hcl
-# Primary-region EC2 instance.
-
-resource "aws_instance" "primary" {
-  ami           = var.primary_ami_id
-  instance_type = var.instance_type
-
-  tags = {
-    Name = "${var.project_name}-primary"
-  }
-}
-
-# Secondary-region EC2 instance.
-#
-# The conditional expression controls whether this resource exists.
-
-resource "aws_instance" "secondary" {
-  count = var.create_secondary_instance ? 1 : 0
-
-  provider = aws.secondary
-
-  ami           = var.secondary_ami_id
-  instance_type = var.instance_type
-
-  tags = {
-    Name = "${var.project_name}-secondary"
-  }
-}
-```
-
-The primary instance does not specify a provider:
-
-```hcl
-resource "aws_instance" "primary" {
-```
-
-Therefore, Terraform uses the default AWS provider configuration.
-
-The secondary instance explicitly specifies:
-
-```hcl
-provider = aws.secondary
-```
-
-Therefore, Terraform uses the aliased provider configuration.
-
-The conditional expression:
-
-```hcl
-count = var.create_secondary_instance ? 1 : 0
-```
-
-means:
-
-```text
-create_secondary_instance
-          │
-          ├── true  → count = 1 → create instance
-          │
-          └── false → count = 0 → do not create instance
-```
-
-This demonstrates how conditional expressions can control resource creation.
-
-### `outputs.tf`
-
-```hcl
-output "primary_instance_id" {
-  type        = string
-  description = "ID of the primary EC2 instance."
-
-  value = aws_instance.primary.id
-}
-
-output "primary_public_ip" {
-  type        = string
-  description = "Public IP of the primary EC2 instance."
-
-  value = aws_instance.primary.public_ip
-}
-
-output "secondary_instance_id" {
-  type        = string
-  description = "ID of the secondary EC2 instance."
-
-  value = try(aws_instance.secondary[0].id, null)
-}
-
-output "secondary_public_ip" {
-  type        = string
-  description = "Public IP of the secondary EC2 instance."
-
-  value = try(aws_instance.secondary[0].public_ip, null)
-}
-
-output "project_summary" {
-  type        = string
-  description = "Human-readable project summary."
-
-  value = format(
-    "%s infrastructure deployed in %s and %s",
-    var.project_name,
-    var.primary_region,
-    var.secondary_region
-  )
-}
-```
-
-The following output demonstrates the `try()` built-in function:
-
-```hcl
-value = try(aws_instance.secondary[0].id, null)
-```
-
-If the secondary instance exists, Terraform returns its ID.
-
-If the secondary instance was not created because:
-
-```hcl
-create_secondary_instance = false
-```
-
-the expression can fall back to:
-
-```text
-null
-```
-
-The project also demonstrates the `format()` function:
-
-```hcl
-format(
-  "%s infrastructure deployed in %s and %s",
-  var.project_name,
-  var.primary_region,
-  var.secondary_region
-)
-```
-
-Root-module outputs are displayed after `terraform apply` and can also be consumed by other Terraform configurations and automation.
-
-### `terraform.tfvars.example`
-
-```hcl
-project_name = "terraform-advanced-configuration"
-
-environment = "dev"
-
-primary_region   = "us-east-1"
-secondary_region = "us-west-2"
-
-instance_type = "t3.micro"
-
-# Replace these with valid AMIs for the selected regions.
-
-primary_ami_id   = "ami-xxxxxxxxxxxxxxxxx"
-secondary_ami_id = "ami-yyyyyyyyyyyyyyyyy"
-
-create_secondary_instance = true
-```
-
-Create a local:
+Do not commit:
 
 ```text
 terraform.tfvars
 ```
 
-from this example and provide real values.
+if it contains secrets.
 
-For example:
-
-```powershell
-Copy-Item terraform.tfvars.example terraform.tfvars
-```
-
-Then replace:
+Prefer:
 
 ```text
-ami-xxxxxxxxxxxxxxxxx
-ami-yyyyyyyyyyyyyyyyy
+terraform.tfvars.example
 ```
 
-with valid AMI IDs.
+with safe example values.
 
-> **Important:** AMI IDs are region-specific. An AMI that exists in `us-east-1` may not exist in `us-west-2`.
+### 26.9 Commit the Lock File
 
-Do not commit real secrets or sensitive variable values.
-
-### `.gitignore`
-
-```gitignore
-# Terraform working directory
-
-.terraform/
-
-# Terraform state
-
-*.tfstate
-*.tfstate.*
-
-# Crash logs
-
-crash.log
-crash.*.log
-
-# Variable files that may contain secrets
-
-*.tfvars
-*.tfvars.json
-
-# Exception: example files are safe to commit
-
-!terraform.tfvars.example
-
-# Terraform plan files
-
-*.tfplan
-
-# Override files
-
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-
-# CLI configuration
-
-.terraformrc
-terraform.rc
-```
-
-Terraform state can contain sensitive information even when variables are marked:
-
-```hcl
-sensitive = true
-```
-
-Therefore, state must be treated as sensitive and excluded from normal Git workflows.
-
-> **Important:** `.terraform.lock.hcl` is intentionally **not** included in `.gitignore`.
-
-After `terraform init`, Terraform normally creates:
+Normally commit:
 
 ```text
 .terraform.lock.hcl
 ```
 
-> This file should normally be committed to version control.
+because it records selected provider versions and helps maintain consistent provider dependencies across environments.
 
-## 5. Project Execution
+### 26.10 Destroy Lab Infrastructure
 
-### Step 1 — Initialize
+Cloud resources can continue generating costs after the lab is complete.
 
-Run:
-
-```bash
-terraform init
-```
-
-Terraform downloads the required provider and creates or updates:
-
-```text
-.terraform.lock.hcl
-```
-
-The lock file records the selected provider version and checksums.
-
-The normal workflow is:
-
-```text
-terraform init
-       │
-       ├── Download provider
-       │
-       ├── Resolve provider version
-       │
-       └── Create/update .terraform.lock.hcl
-```
-
-The lock file should normally be committed because it allows teams and automated environments to use consistent provider versions.
-
-### Step 2 — Format
-
-Run:
+After practice:
 
 ```bash
-terraform fmt -recursive
+terraform destroy
 ```
 
-This formats Terraform configuration files according to Terraform's standard formatting rules.
+Verify that the resources have been removed.
 
-> We should run formatting before committing Terraform code.
+## 27. Cleanup and Destroy
 
-### Step 3 — Validate
-
-Run:
-
-```bash
-terraform validate
-```
-
-This checks whether the Terraform configuration is syntactically valid and internally consistent.
-
-A successful result should look conceptually like:
-
-```text
-Success! The configuration is valid.
-```
-
-### Step 4 — Plan
-
-Run:
-
-```bash
-terraform plan
-```
-
-Terraform evaluates the configuration and shows the proposed infrastructure changes.
-
-> Before applying the configuration, we should review the plan carefully.
-
-The expected architecture is:
-
-```text
-Primary AWS Region
-└── EC2 Instance
-
-Secondary AWS Region
-└── EC2 Instance
-```
-
-### Step 5 — Apply
-
-Run:
-
-```bash
-terraform apply
-```
-
-Terraform displays the proposed changes.
-
-Review the plan and confirm the operation.
-
-When prompted:
-
-```text
-Do you want to perform these actions?
-```
-
-enter:
-
-```text
-yes
-```
-
-Terraform then creates the requested AWS resources.
-
-### Step 6 — Inspect Outputs
-
-Run:
-
-```bash
-terraform output
-```
-
-This displays the root-module outputs.
-
-To retrieve one specific output:
-
-```bash
-terraform output primary_public_ip
-```
-
-For automation:
-
-```bash
-terraform output -json
-```
-
-The `terraform output` command retrieves output values from Terraform state.
-
-## 6. Project Validation
-
-Verify the following:
-
-```text
-terraform init
-        ↓
-Successful provider installation
-
-terraform fmt
-        ↓
-Consistent formatting
-
-terraform validate
-        ↓
-Configuration valid
-
-terraform plan
-        ↓
-Expected resources
-
-terraform apply
-        ↓
-Resources created
-
-terraform output
-        ↓
-Expected IDs/IPs
-```
-
-### AWS Console Validation
-
-Open the AWS Console and verify the two regions.
-
-```text
-AWS Console
-   │
-   ├── us-east-1
-   │      └── Primary EC2
-   │
-   └── us-west-2
-          └── Secondary EC2
-```
-
-The primary instance should exist in:
-
-```text
-us-east-1
-```
-
-and the secondary instance should exist in:
-
-```text
-us-west-2
-```
-
-when:
-
-```hcl
-create_secondary_instance = true
-```
-
-## 7. Testing the Conditional Expression
-
-The project contains:
-
-```hcl
-create_secondary_instance = true
-```
-
-Therefore, both instances should be created.
-
-We can test the conditional behavior by changing:
-
-```hcl
-create_secondary_instance = false
-```
-
-Then run:
-
-```bash
-terraform plan
-```
-
-Terraform should propose removing the secondary instance while keeping the primary instance.
-
-The behavior is:
-
-```text
-create_secondary_instance = true
-                │
-                ▼
-             count = 1
-                │
-                ▼
-       Secondary EC2 created
-
-
-create_secondary_instance = false
-                │
-                ▼
-             count = 0
-                │
-                ▼
-       Secondary EC2 not created
-```
-
-This demonstrates the connection between:
-
-```text
-Variables
-   ↓
-Conditional Expression
-   ↓
-count
-   ↓
-Resource Creation
-```
-
-## 8. Project Cleanup
-
-> Never leave paid cloud resources running after a learning lab.
-
-Run:
+Once we have completed the project, destroy the infrastructure:
 
 ```bash
 terraform destroy
@@ -855,407 +1414,395 @@ terraform destroy
 
 Terraform displays the resources that will be removed.
 
-Confirm the operation.
+Review the plan carefully and confirm.
 
-When prompted:
+### 27.1 Verify AWS Cleanup
 
-```text
-Do you want to destroy all resources?
-```
-
-enter:
-
-```text
-yes
-```
-
-After destruction completes, run:
+Check both regions:
 
 ```bash
-terraform plan
+aws ec2 describe-instances --region us-east-1
 ```
 
-The expected result should indicate that there are no resources left to create or change.
-
-Conceptually:
-
-```text
-terraform destroy
-       │
-       ▼
-AWS resources removed
-       │
-       ▼
-terraform plan
-       │
-       ▼
-No infrastructure changes required
-```
-
-### Important
-
-Do not delete:
-
-```text
-.terraform.lock.hcl
-```
-
-as part of normal cleanup.
-
-> The lock file is a repository file and should normally remain committed.
-
-If we intentionally want to reset provider dependency selections, that is a separate operation.
-
-## 9. Project Troubleshooting
-
-### Provider Authentication Error
-
-Run:
+and:
 
 ```bash
-aws sts get-caller-identity
+aws ec2 describe-instances --region us-west-2
 ```
 
-If this fails, fix AWS authentication before troubleshooting Terraform.
+Verify that the Terraform-created instances have been removed.
 
-We should first verify:
+### 27.2 Verify Azure Cleanup
+
+Check resource groups:
+
+```bash
+az group list --output table
+```
+
+Verify that the Terraform-created resource group is no longer present.
+
+### 27.3 Why Cleanup Matters
+
+Terraform labs can create billable cloud resources.
+
+The complete learning workflow should therefore be:
 
 ```text
-AWS CLI authentication
-        ↓
-AWS account access
-        ↓
-Terraform provider authentication
+Create
+  │
+  ▼
+Validate
+  │
+  ▼
+Test
+  │
+  ▼
+Understand
+  │
+  ▼
+Destroy
 ```
 
-### Invalid AMI
+Cleanup is part of responsible cloud engineering.
 
-AMI IDs are region-specific.
+## 28. What We Learned
+
+This project connected the individual Terraform configuration concepts into one practical implementation.
+
+We learned how:
+
+```text
+Terraform
+    │
+    ├── Providers
+    │      ├── AWS
+    │      └── Azure
+    │
+    ├── Provider Aliases
+    │      ├── AWS Default
+    │      └── AWS West
+    │
+    ├── Multiple Regions
+    │      ├── us-east-1
+    │      └── us-west-2
+    │
+    ├── Variables
+    │
+    ├── .tfvars
+    │
+    ├── Locals
+    │
+    ├── Functions
+    │
+    ├── Conditionals
+    │
+    ├── Resources
+    │
+    └── Outputs
+```
+
+work together.
+
+The most important architectural concept is provider mapping:
+
+```text
+Resource
+   │
+   ▼
+Provider Configuration
+   │
+   ▼
+Cloud / Region
+```
 
 For example:
 
 ```text
-ami-123...
+aws_instance.east
+       │
+       ▼
+      aws
+       │
+       ▼
+   us-east-1
 ```
 
-may be valid in:
+while:
+
+```text
+aws_instance.west
+       │
+       ▼
+    aws.west
+       │
+       ▼
+   us-west-2
+```
+
+## 29. Interview Questions
+
+### Q1. Why do we use provider aliases in Terraform?
+
+**Answer:**
+
+Provider aliases allow us to create multiple configurations of the same provider.
+
+For example, we can configure AWS for:
 
 ```text
 us-east-1
-```
-
-but unavailable in:
-
-```text
 us-west-2
 ```
 
-Therefore, verify that:
+and assign an alias to the second configuration.
 
-```text
-primary_ami_id
-```
+Resources can then explicitly select the required provider.
 
-belongs to:
+### Q2. How do we deploy AWS resources into multiple regions using Terraform?
 
-```text
-primary_region
-```
+**Answer:**
 
-and:
+We create multiple AWS provider configurations using aliases.
 
-```text
-secondary_ami_id
-```
-
-belongs to:
-
-```text
-secondary_region
-```
-
-### Provider Alias Error
-
-Ensure the resource contains:
-
-```hcl
-provider = aws.secondary
-```
-
-and the provider configuration contains:
+For example:
 
 ```hcl
 provider "aws" {
-  alias = "secondary"
+  region = "us-east-1"
+}
+
+provider "aws" {
+  alias  = "west"
+  region = "us-west-2"
 }
 ```
 
-The names must match.
+Then resources explicitly select the required provider:
+
+```hcl
+provider = aws.west
+```
+
+### Q3. Can Terraform manage AWS and Azure resources in the same configuration?
+
+**Answer:**
+
+Yes.
+
+Terraform supports multiple providers in the same configuration.
 
 For example:
 
 ```text
-provider alias
-      │
-      ▼
-secondary
-      │
-      ▼
-provider = aws.secondary
+AWS Provider
+Azure Provider
 ```
 
-### Variable Missing
+can both be declared and used by resources in the same Terraform project.
 
-If Terraform reports that a required variable is missing, ensure that we have created:
+### Q4. What is the difference between a provider and a provider alias?
+
+**Answer:**
+
+A provider is a configuration for communicating with a particular infrastructure platform.
+
+An alias creates an additional named configuration of that provider.
+
+For example:
+
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+is the default configuration.
+
+While:
+
+```hcl
+provider "aws" {
+  alias  = "west"
+  region = "us-west-2"
+}
+```
+
+is an aliased configuration.
+
+### Q5. Why should we not hardcode environment-specific values?
+
+**Answer:**
+
+Hardcoding reduces reusability.
+
+Using variables allows the same Terraform configuration to be reused for:
 
 ```text
-terraform.tfvars
+dev
+staging
+prod
 ```
 
-from:
+without duplicating the infrastructure code.
+
+### Q6. What is the purpose of `terraform.tfvars`?
+
+**Answer:**
+
+`terraform.tfvars` provides values for Terraform input variables.
+
+It separates configuration values from the variable definitions and infrastructure resources.
+
+### Q7. Why do we use locals?
+
+**Answer:**
+
+Locals allow us to define reusable calculated values and simplify complex expressions.
+
+For example:
+
+```hcl
+locals {
+  environment = lower(trimspace(var.environment))
+}
+```
+
+The calculated value can then be reused throughout the configuration.
+
+### Q8. How can we conditionally create a Terraform resource?
+
+**Answer:**
+
+We can use conditional expressions together with `count` or `for_each`.
+
+For example:
+
+```hcl
+count = var.deploy_azure ? 1 : 0
+```
+
+If `deploy_azure` is `true`, Terraform creates one instance of the resource.
+
+If it is `false`, Terraform creates zero instances.
+
+### Q9. Why might the same AMI ID not work in multiple AWS regions?
+
+**Answer:**
+
+AWS AMIs are generally region-specific.
+
+An AMI ID available in one region may not exist in another region.
+
+For multi-region deployments, we should use an AMI that is available in each target region.
+
+### Q10. Why should we run `terraform plan` before `terraform apply`?
+
+**Answer:**
+
+`terraform plan` allows us to review the changes Terraform intends to make before modifying infrastructure.
+
+This helps us identify:
+
+* Unexpected changes.
+* Resource replacements.
+* Resource deletions.
+* Incorrect regions.
+* Incorrect provider mappings.
+* Incorrect variable values.
+
+## 30. Summary
+
+This project demonstrates how individual Terraform configuration concepts come together in a practical Infrastructure as Code workflow.
+
+The complete flow is:
 
 ```text
-terraform.tfvars.example
-```
-
-Alternatively, explicitly specify the file:
-
-```bash
-terraform plan -var-file="terraform.tfvars"
-```
-
-A file named:
-
-```text
-terraform.tfvars
-```
-
-is automatically loaded by Terraform.
-
-A file named:
-
-```text
-dev.tfvars
-```
-
-is **not** automatically loaded merely because it ends in `.tfvars`.
-
-It must be explicitly selected:
-
-```bash
-terraform plan -var-file="dev.tfvars"
-```
-
-### State/Provider Error
-
-Do not immediately delete Terraform state.
-
-First inspect:
-
-```bash
-terraform state list
-```
-
-and:
-
-```bash
-terraform providers
-```
-
-`terraform state list` helps us understand which resources Terraform currently tracks.
-
-`terraform providers` helps us understand the provider requirements associated with the configuration and state.
-
-Provider configuration information is retained in Terraform state because Terraform may need the appropriate provider configuration for operations involving existing resources, including destruction.
-
-### Terraform Configuration Error
-
-Start with:
-
-```bash
-terraform fmt
-```
-
-then:
-
-```bash
-terraform validate
-```
-
-and finally:
-
-```bash
-terraform plan
-```
-
-A useful troubleshooting sequence is:
-
-```text
-terraform fmt
-      ↓
-terraform validate
-      ↓
-terraform plan
-      ↓
-Review error
-      ↓
-Inspect configuration/state
-      ↓
-Correct problem
-      ↓
-terraform plan
-```
-
-## 10. Professional Git Workflow
-
-After creating and validating the project, review the files:
-
-```text
-versions.tf
-providers.tf
-variables.tf
-main.tf
-outputs.tf
-terraform.tfvars.example
-.gitignore
-.terraform.lock.hcl
-```
-
-Check Git status:
-
-```bash
-git status
-```
-
-We should confirm that:
-
-```text
-terraform.tfvars
-```
-
-is not staged or committed.
-
-We should normally see:
-
-```text
-.terraform.lock.hcl
-```
-
-as a trackable file.
-
-We should not commit:
-
-```text
-.terraform/
-*.tfstate
-*.tfstate.*
-terraform.tfvars
-*.tfplan
-```
-
-## 11. Final Project Flow
-
-The complete learning flow is:
-
-```text
-                   Terraform Project
+                    Terraform Project
                            │
                            ▼
-                      versions.tf
-                           │
-                           ▼
-                 Provider Requirements
-                           │
-                           ▼
-                      providers.tf
-                           │
-                           ▼
-              Multiple AWS Configurations
-                           │
-                ┌──────────┴──────────┐
-                ▼                     ▼
-         Primary Region      Secondary Region
-                │                     │
-                └──────────┬──────────┘
-                           ▼
-                     variables.tf
-                           │
-                           ▼
-                    Input Variables
-                           │
-                           ▼
-                    terraform.tfvars
-                           │
-                           ▼
-                        main.tf
+                    Required Providers
                            │
              ┌─────────────┴─────────────┐
+             │                           │
              ▼                           ▼
-       Primary EC2                 Conditional EC2
-                                         │
-                                         ▼
-                              create_secondary_instance
-                                         │
-                                         ▼
-                                       count
-                           │
-                           ▼
-                      outputs.tf
-                           │
-                           ▼
-                  IDs / IPs / Summary
-                           │
-                           ▼
-                    fmt → validate
-                           │
-                           ▼
-                         plan
-                           │
-                           ▼
-                         apply
-                           │
-                           ▼
-                  Validate AWS Resources
-                           │
-                           ▼
-                        destroy
-                           │
-                           ▼
-                   Final terraform plan
+            AWS                        Azure
+             │
+       ┌─────┴─────┐
+       │           │
+       ▼           ▼
+   us-east-1   us-west-2
+       │           │
+       ▼           ▼
+      EC2         EC2
 ```
 
-This project therefore connects the 02-terraform-configuration concepts into one practical workflow:
+Alongside the infrastructure configuration:
 
 ```text
-Providers
-   +
-Provider Requirements
-   +
-Provider Aliases
-   +
-Multiple Regions
-   +
 Variables
-   +
+    │
+    ▼
 .tfvars
-   +
-Conditional Expressions
-   +
-Built-in Functions
-   +
+    │
+    ▼
+Locals
+    │
+    ▼
+Functions
+    │
+    ▼
+Conditionals
+    │
+    ▼
+Resources
+    │
+    ▼
 Outputs
-   +
-Validation
-   +
-Planning
-   +
-Apply
-   +
-Troubleshooting
-   +
-Cleanup
-   =
-Reusable Terraform Configuration
 ```
 
-> **Historical compatibility note:** older Terraform examples may contain deprecated provider-version syntax, older `map()` usage, or other legacy constructs. Those examples are useful for understanding Terraform's evolution, but modern projects should follow the current `required_providers`, modern expression syntax, and current provider documentation.
+The standard execution workflow is:
+
+```bash
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+terraform apply
+```
+
+After completing the practice:
+
+```bash
+terraform destroy
+```
+
+The key takeaway is:
+
+> Terraform configuration becomes powerful when providers, provider aliases, variables, `.tfvars`, conditionals, functions, locals, resources, and outputs are combined into reusable Infrastructure as Code.
+
+This project therefore serves as the practical implementation of the concepts covered throughout:
+
+```text
+02-terraform-configuration/
+│
+├── 01-providers.md
+├── 02-multiple-providers.md
+├── 03-multiple-regions.md
+├── 04-required-providers.md
+├── 05-variables.md
+├── 06-tfvars.md
+├── 07-conditional-expressions.md
+├── 08-built-in-functions.md
+│
+└── project-multi-region-multi-provider/
+    ├── README.md
+    ├── versions.tf
+    ├── providers.tf
+    ├── variables.tf
+    ├── terraform.tfvars.example
+    ├── main.tf
+    └── outputs.tf
+```
+
+The next step is to create the actual Terraform implementation files and execute the project from this README.

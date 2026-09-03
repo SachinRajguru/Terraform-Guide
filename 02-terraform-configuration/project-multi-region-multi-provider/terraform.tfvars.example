@@ -1,15 +1,20 @@
-project_name = "terraform-advanced-configuration"
+aws_region           = "us-east-1"
+aws_secondary_region = "us-west-2"
 
-environment = "dev"
+azure_location        = "East US"
+azure_subscription_id = "00000000-0000-0000-0000-000000000000"
 
-primary_region   = "us-east-1"
-secondary_region = "us-west-2"
+project_name = "terraform-demo"
+environment  = "dev"
+
+# Replace these placeholder values with valid AMI IDs
+# available in the corresponding AWS regions.
+aws_ami_id           = "ami-xxxxxxxxxxxxxxxxx"
+aws_secondary_ami_id = "ami-xxxxxxxxxxxxxxxxx"
 
 instance_type = "t3.micro"
+deploy_azure  = true
 
-# Replace these with valid AMIs for the selected regions.
-
-primary_ami_id   = "ami-xxxxxxxxxxxxxxxxx"
-secondary_ami_id = "ami-yyyyyyyyyyyyyyyyy"
-
-create_secondary_instance = true
+common_tags = {
+  Owner = "Terraform-Lab"
+}

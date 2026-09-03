@@ -1,30 +1,14 @@
-# Default AWS provider configuration.
-# This provider targets the primary region.
-
 provider "aws" {
-  region = var.primary_region
-
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-    }
-  }
+  region = var.aws_region
 }
 
-# Additional AWS provider configuration.
-# The alias allows resources to explicitly use this region.
-
 provider "aws" {
-  alias  = "secondary"
-  region = var.secondary_region
+  alias  = "west"
+  region = var.aws_secondary_region
+}
 
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "Terraform"
-    }
-  }
+provider "azurerm" {
+  features {}
+
+  subscription_id = var.azure_subscription_id
 }
