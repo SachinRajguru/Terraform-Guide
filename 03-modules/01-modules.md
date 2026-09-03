@@ -1,7 +1,7 @@
 
 ## Terraform Modules
 
-**File:** `01-modules.md`
+> **File:** `01-modules.md`
 
 ## Table of Contents
 
@@ -36,9 +36,9 @@
 
 Terraform modules are one of the most important concepts for building **reusable, maintainable, and scalable Infrastructure as Code (IaC)**.
 
-As Terraform configurations grow, keeping every resource in one large configuration quickly becomes difficult to maintain.
+As Terraform configurations grow, keeping every resource in one large configuration can become difficult to understand, maintain, test, and reuse.
 
-For example, an organization may create:
+For example, an organization may manage:
 
 * EC2 instances
 * VPCs
@@ -49,17 +49,29 @@ For example, an organization may create:
 * IAM resources
 * EKS clusters
 
-If every resource is implemented directly inside one large Terraform configuration, the configuration can become difficult to understand, test, reuse, and maintain.
+If all of these resources are implemented directly in one large Terraform configuration, the configuration can become difficult to manage.
 
-> Terraform modules solve this problem by allowing related Terraform resources and configuration to be packaged into **reusable building blocks**.
+Terraform modules solve this problem by allowing related Terraform resources and configuration to be packaged into **reusable building blocks**.
 
-HashiCorp defines modules as reusable configurations that allow collections of resources to be managed together. Terraform supports modules from local directories, registries, VCS repositories, and other supported sources. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/configuration))
+A module can then be called from another Terraform configuration and supplied with different inputs.
+
+```text
+                    Terraform Module
+                           |
+             +-------------+-------------+
+             |             |             |
+            Dev           Test          Prod
+             |             |             |
+          Resources     Resources     Resources
+```
+
+The implementation remains centralized while the configuration can vary through inputs.
 
 ## 2. Prerequisites and Required Knowledge
 
-Before starting modules, we should recall the important concepts covered in the previous section.
+Before starting Terraform Modules, we should understand the important Terraform concepts covered in the previous sections.
 
-We worked with:
+We should be familiar with:
 
 * Terraform providers
 * Multiple providers
@@ -79,7 +91,7 @@ We worked with:
 * `terraform apply`
 * `terraform destroy`
 
-The general Terraform workflow was:
+The general Terraform workflow is:
 
 ```text
 Terraform Configuration
@@ -103,7 +115,7 @@ terraform apply
 AWS Infrastructure
 ```
 
-> The problem is that as the configuration grows, this model can become increasingly difficult to manage.
+As the configuration grows, this model can become increasingly difficult to manage.
 
 Modules provide a way to organize and reuse this configuration.
 
@@ -134,7 +146,7 @@ EC2 Module
 └── versions.tf
 ```
 
-The module can then be called from another Terraform configuration.
+The module can then be called from another Terraform configuration:
 
 ```hcl
 module "ec2" {
@@ -150,7 +162,7 @@ Instead of repeatedly writing the EC2 resource configuration, we can reuse the m
 
 Consider a company that manufactures computers.
 
-Instead of designing every computer from scratch, the company creates reusable components:
+Instead of designing every computer completely from scratch, the company can create reusable components:
 
 ```text
 CPU Module
@@ -174,7 +186,7 @@ EC2 Module
      +---- Production Environment
 ```
 
-> The implementation is centralized while the configuration can vary.
+The implementation is centralized while the configuration can vary.
 
 ## 4. Why Do We Need Modules?
 
@@ -229,7 +241,7 @@ With modules:
 
 The implementation remains reusable.
 
-> Only the inputs change.
+Only the inputs change.
 
 ## 5. Terraform Root Module and Child Modules
 
@@ -291,7 +303,7 @@ Child Module
      +---- other resources
 ```
 
-A root module can call multiple child modules, and a child module can itself call other modules. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules))
+A root module can call multiple child modules, and a child module can itself call other modules.
 
 ## 6. Types of Terraform Modules
 
@@ -307,7 +319,19 @@ module "ec2" {
 }
 ```
 
-This is particularly useful while developing our own modules.
+Local modules are particularly useful while developing our own modules.
+
+Example:
+
+```text
+project/
+├── main.tf
+└── modules/
+    └── ec2/
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
+```
 
 ### 6.2 Git/GitHub Modules
 
@@ -329,9 +353,9 @@ module "ec2" {
 }
 ```
 
-Terraform supports selecting Git revisions such as branches, tags, and commit SHA references. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/configuration))
+A Git revision such as a branch, tag, or commit SHA can be referenced.
 
-> For production environments, immutable references such as release tags or commit SHAs are preferable to continuously tracking a branch.
+For production environments, immutable references such as release tags or commit SHAs are preferable to continuously tracking a branch.
 
 ### 6.3 Terraform Registry Modules
 
@@ -346,9 +370,9 @@ module "example" {
 }
 ```
 
-> The Terraform Registry provides reusable modules from HashiCorp, partners, and the community.
+The Terraform Registry provides reusable modules from HashiCorp, partners, and the community.
 
-Organizations can also use private module registries through HCP Terraform/Terraform Enterprise. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules))
+Organizations can also use private module registries through HCP Terraform/Terraform Enterprise.
 
 ## 7. Advantages of Modules
 
@@ -366,9 +390,11 @@ module "prod_ec2" {
 }
 ```
 
+The same implementation can be reused with different inputs.
+
 ### 7.2 Reduced Code Duplication
 
-Instead of copying:
+Instead of copying the same resource configuration multiple times:
 
 ```hcl
 resource "aws_instance" "example" {
@@ -376,7 +402,7 @@ resource "aws_instance" "example" {
 }
 ```
 
-multiple times, we maintain the implementation once.
+we maintain the implementation once inside the module.
 
 ### 7.3 Standardization
 
@@ -389,173 +415,105 @@ An organization can create a standard EC2 module that enforces:
 * Naming conventions
 * Encryption requirements
 
-Teams then consume the approved module instead of implementing everything independently.
+Teams can then consume the approved module instead of implementing everything independently.
 
 ### 7.4 Maintainability
 
-Changes can be implemented centrally.
+When the implementation is centralized, changes can be made in one place.
 
 For example:
 
 ```text
-Before
-
-Application A ──> copied EC2 configuration
-Application B ──> copied EC2 configuration
-Application C ──> copied EC2 configuration
+EC2 Module
+    |
+    +---- Dev
+    +---- Test
+    +---- Staging
+    +---- Production
 ```
 
-versus:
-
-```text
-                EC2 Module
-               /    |     \
-              /     |      \
-          App A   App B   App C
-```
+A module update can then be adopted by the environments that consume it.
 
 ### 7.5 Scalability
 
-Modules make it easier to build infrastructure consistently across:
+Modules allow Terraform configurations to grow without putting every resource directly into a single configuration.
 
-* Multiple applications
-* Multiple teams
-* Multiple environments
-* Multiple AWS accounts
-* Multiple regions
+A larger architecture might look like:
+
+```text
+Root Module
+│
+├── Network Module
+├── Security Module
+├── Database Module
+├── Compute Module
+└── Monitoring Module
+```
+
+Each module can have a focused responsibility.
 
 ## 8. Development Environment and Lab Prerequisites
 
-Before performing the practical exercises, we should have the following.
+For the practical lab, we need:
 
-### Required Tools
+| Tool        | Purpose                             |
+| ----------- | ----------------------------------- |
+| Terraform   | Infrastructure as Code              |
+| AWS CLI     | AWS command-line access             |
+| Git         | Version control                     |
+| AWS Account | Infrastructure deployment           |
+| Code Editor | Terraform configuration development |
 
-| Tool                  | Purpose                               |
-| --------------------- | ------------------------------------- |
-| Terraform             | Infrastructure as Code                |
-| AWS CLI               | AWS authentication and CLI operations |
-| AWS Account           | Infrastructure deployment             |
-| Git                   | Version control                       |
-| GitHub                | Repository/module hosting             |
-| VS Code or equivalent | Configuration development             |
+### 8.1 Verify Terraform
 
-### Terraform Version
-
-The examples should be executed with a currently supported Terraform release.
-
-Always verify the installed version:
+Run:
 
 ```bash
 terraform version
 ```
 
-Terraform's `version` command displays the Terraform CLI version and installed provider plugins. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/cli/commands/version))
+The project should be executed using a currently supported Terraform CLI release.
 
-The exact **Terraform CLI version** used in a lab should always be recorded in the repository or environment documentation.
+Record the exact Terraform version used for the project so that the execution environment remains reproducible.
 
-> The `required_version` constraint defines which Terraform CLI versions are compatible with a configuration. Exact Terraform CLI reproducibility should be controlled through the project's documented tool/version requirements rather than relying only on a minimum-version constraint.
+### 8.2 Verify AWS CLI
 
-### AWS Provider
+Run:
 
-The lab uses AWS provider `~> 6.60` as the documented example version. Provider versions should be reviewed and updated deliberately as part of dependency maintenance. ([Terraform Registry](https://registry.terraform.io/providers/hashicorp/aws/latest))
-
-For reproducible training, we should nevertheless explicitly constrain the provider version rather than silently consuming whatever version happens to be latest.
-
-Example:
-
-```hcl
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.60"
-    }
-  }
-}
+```bash
+aws --version
 ```
 
-> **Important:** Provider versions evolve independently from Terraform CLI versions. The exact provider version used by a project should be selected deliberately and recorded in `.terraform.lock.hcl`.
+### 8.3 Verify AWS Authentication
 
-### AWS Authentication
+Run:
 
-Recommended authentication approaches include:
-
-* AWS CLI profiles
-* Environment variables
-* IAM roles
-* Instance profiles
-* Web identity/OIDC
-* CI/CD identity federation
-* Short-lived credentials
-
-#### Avoid
-
-Hard-coding credentials directly into Terraform files:
-
-```hcl
-provider "aws" {
-  access_key = "AKIA..."
-  secret_key = "..."
-}
+```bash
+aws sts get-caller-identity
 ```
 
-This is a legacy approach and is **not recommended** for modern implementations.
+A successful response confirms that the AWS CLI can authenticate with the configured AWS account.
 
 ## 9. Lab 1 — Build a Regular Terraform Project
 
-Before converting anything into a module, we first create a normal Terraform project.
+Before introducing modules, we first create a normal Terraform project.
 
-This gives us a clear understanding of the problem that modules solve.
+The initial project directly manages an EC2 instance.
 
-### 9.1 Project Structure
-
-Create:
+Example:
 
 ```text
 project-ec2-instance/
 ├── versions.tf
 ├── main.tf
 ├── variables.tf
-├── terraform.tfvars.example
+├── terraform.tfvars
 └── outputs.tf
 ```
 
-### 9.2 `versions.tf`
+The resource is initially defined directly in the root module.
 
 ```hcl
-terraform {
-  required_version = ">= 1.15.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.60"
-    }
-  }
-}
-```
-
-#### Explanation
-
-`required_version` controls the Terraform CLI version constraint.
-
-`required_providers` declares the provider dependency.
-
-The provider source:
-
-```text
-hashicorp/aws
-```
-
-identifies the official AWS provider.
-
-### 9.3 `main.tf`
-
-```hcl
-provider "aws" {
-  region = var.aws_region
-}
-
 resource "aws_instance" "this" {
   ami           = var.ami_id
   instance_type = var.instance_type
@@ -567,49 +525,7 @@ resource "aws_instance" "this" {
 }
 ```
 
-### 9.4 `variables.tf`
-
-```hcl
-variable "aws_region" {
-  description = "AWS region where the EC2 instance will be created."
-  type        = string
-}
-
-variable "ami_id" {
-  description = "AMI ID used to launch the EC2 instance."
-  type        = string
-}
-
-variable "instance_type" {
-  description = "EC2 instance type."
-  type        = string
-  default     = "t3.micro"
-}
-
-variable "instance_name" {
-  description = "Name tag for the EC2 instance."
-  type        = string
-}
-
-variable "environment" {
-  description = "Environment name."
-  type        = string
-}
-```
-
-### 9.5 `terraform.tfvars.example`
-
-Example:
-
-```hcl
-aws_region    = "us-east-1"
-ami_id        = "<ami-id>"
-instance_type = "t3.micro"
-instance_name = "terraform-module-demo"
-environment   = "dev"
-```
-
-Replace `<ami-id>` with an AMI appropriate for the selected AWS region.
+This helps us understand what the configuration looks like before introducing a module.
 
 ## 10. Executing and Validating the Initial Project
 
@@ -619,41 +535,31 @@ From the project directory:
 terraform init
 ```
 
-This initializes the working directory and downloads required providers.
-
-### Format
+Format the configuration:
 
 ```bash
 terraform fmt
 ```
 
-### Validate
+Validate the configuration:
 
 ```bash
 terraform validate
 ```
 
-Expected result:
-
-```text
-Success! The configuration is valid.
-```
-
-### Plan
+Create an execution plan:
 
 ```bash
 terraform plan
 ```
 
-The plan allows us to review the infrastructure changes before applying them.
-
-### Apply
+Apply the configuration:
 
 ```bash
 terraform apply
 ```
 
-Review the plan and confirm:
+Review the proposed changes and confirm:
 
 ```text
 yes
@@ -663,115 +569,38 @@ Terraform then creates the EC2 instance.
 
 ## 11. Terraform Output Values
 
-Outputs allow Terraform to expose useful values from a configuration.
+Terraform outputs allow us to expose useful values from resources.
 
-Create:
-
-### `outputs.tf`
+Example:
 
 ```hcl
 output "instance_id" {
   description = "ID of the EC2 instance."
   value       = aws_instance.this.id
 }
-
-output "instance_public_ip" {
-  description = "Public IP address of the EC2 instance."
-  value       = aws_instance.this.public_ip
-}
-
-output "instance_public_dns" {
-  description = "Public DNS name of the EC2 instance."
-  value       = aws_instance.this.public_dns
-}
 ```
 
-After applying:
+After applying the configuration, we can inspect outputs:
 
 ```bash
 terraform output
 ```
 
-Example:
-
-```text
-instance_id = "i-0123456789abcdef0"
-instance_public_ip = "3.x.x.x"
-instance_public_dns = "ec2-3-x-x-x.us-east-1.compute.amazonaws.com"
-```
-
-Outputs become particularly important when working with modules because they provide the interface through which a parent module consumes values from a child module.
+Outputs become particularly important when working with modules because they provide a controlled interface between a child module and its caller.
 
 ## 12. Recommended Project Structure
 
-For a simple Terraform project:
+A simple Terraform module project can use the following structure:
 
 ```text
-project-ec2-instance/
-├── versions.tf
-├── main.tf
-├── variables.tf
-├── terraform.tfvars.example
-├── outputs.tf
-├── .terraform.lock.hcl
+project-ec2-module/
 │
-├── .gitignore
-└── README.md
-```
-
-A larger module-based project can be organized as:
-
-```text
-project/
-├── versions.tf
-├── main.tf
-├── variables.tf
-├── outputs.tf
-├── terraform.tfvars.example
-├── .terraform.lock.hcl
 ├── README.md
-│
-└── modules/
-    └── ec2/
-        ├── versions.tf
-        ├── main.tf
-        ├── variables.tf
-        ├── outputs.tf
-        └── README.md
-```
-
-## 13. Lab 2 — Convert the Project into a Terraform Module
-
-Now we convert the EC2 implementation into a reusable module.
-
-This is the key practical exercise.
-
-### 13.1 Before Conversion
-
-Initially:
-
-```text
-project/
 ├── versions.tf
 ├── main.tf
 ├── variables.tf
-├── outputs.tf
-└── terraform.tfvars.example
-```
-
-> The EC2 resource is directly inside the root module.
-
-### 13.2 After Conversion
-
-We create:
-
-```text
-project/
-├── versions.tf
-├── main.tf
-├── variables.tf
-├── outputs.tf
 ├── terraform.tfvars.example
+├── outputs.tf
 │
 └── modules/
     └── ec2/
@@ -781,173 +610,37 @@ project/
         └── outputs.tf
 ```
 
+The root module is responsible for project-level configuration.
+
+The child module contains the reusable EC2 implementation.
+
+## 13. Lab 2 — Convert the Project into a Terraform Module
+
+We now convert the direct EC2 resource into a reusable child module.
+
 The architecture becomes:
-
-```text
-                    Root Module
-                        |
-                        | module "ec2"
-                        v
-                    EC2 Module
-                 /       |       \
-                /        |        \
-          variables   resource   outputs
-```
-
-## 14. Calling a Local Module
-
-### 14.1 Child Module — `modules/ec2/versions.tf`
-
-```hcl
-terraform {
-  required_providers {
-    aws = {
-      source = "hashicorp/aws"
-    }
-  }
-}
-```
-
-### 14.2 Child Module — `modules/ec2/main.tf`
-
-```hcl
-resource "aws_instance" "this" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-
-  tags = {
-    Name        = var.instance_name
-    Environment = var.environment
-  }
-}
-```
-
-### 14.3 Child Module — `modules/ec2/variables.tf`
-
-```hcl
-variable "ami_id" {
-  description = "AMI ID used to launch the EC2 instance."
-  type        = string
-}
-
-variable "instance_type" {
-  description = "EC2 instance type."
-  type        = string
-}
-
-variable "instance_name" {
-  description = "Name tag for the EC2 instance."
-  type        = string
-}
-
-variable "environment" {
-  description = "Environment name."
-  type        = string
-}
-```
-
-### 14.4 Child Module — `modules/ec2/outputs.tf`
-
-```hcl
-output "instance_id" {
-  description = "ID of the EC2 instance."
-  value       = aws_instance.this.id
-}
-
-output "public_ip" {
-  description = "Public IP address of the EC2 instance."
-  value       = aws_instance.this.public_ip
-}
-
-output "public_dns" {
-  description = "Public DNS name of the EC2 instance."
-  value       = aws_instance.this.public_dns
-}
-```
-
-### 14.5 Provider Requirements vs Provider Configuration
-
-A reusable child module should declare which providers it requires.
-
-For example:
-
-```hcl
-terraform {
-  required_providers {
-    aws = {
-      source = "hashicorp/aws"
-    }
-  }
-}
-```
-
-This is the provider requirement.
-
-The actual provider configuration is normally defined by the root module:
-
-```hcl
-provider "aws" {
-  region = var.aws_region
-}
-```
-
-The distinction is important:
 
 ```text
 Root Module
 │
-├── Provider Requirement
 ├── Provider Configuration
-│
-└── Child Module
-    │
-    ├── Provider Requirement
-    └── Resources
-```
-
-Provider requirements tell Terraform which provider a module depends on.
-
-Provider configurations define how Terraform should connect to the target platform.
-
-## 15. Module Inputs and Outputs
-
-A module can be understood as a function.
-
-```text
-                  Module
-             +--------------+
-             |              |
-Inputs ----->|  EC2 Module  |-----> Outputs
-             |              |
-             +--------------+
-```
-
-For example:
-
-```text
-Inputs
------
-ami_id
-instance_type
-instance_name
-environment
-
+├── Root Variables
+├── Module Call
+└── Root Outputs
         |
         v
-     EC2 Module
+    EC2 Module
         |
-        v
-
-Outputs
--------
-instance_id
-public_ip
-public_dns
+        └── aws_instance
 ```
 
-### 15.1 Root Module
+The EC2 resource moves from the root module into:
 
-The root module calls the child module.
+```text
+modules/ec2/main.tf
+```
+
+The root module calls it:
 
 ```hcl
 module "ec2" {
@@ -960,178 +653,175 @@ module "ec2" {
 }
 ```
 
-The `source` argument tells Terraform where to obtain the module configuration. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/block/module))
+This creates a clear separation between:
 
-### 15.2 Consuming Module Outputs
+* Project-level configuration
+* Reusable infrastructure implementation
 
-Root `outputs.tf`:
+## 14. Calling a Local Module
+
+A local module is called using the `source` argument.
+
+```hcl
+module "ec2" {
+  source = "./modules/ec2"
+}
+```
+
+The `source` tells Terraform where the module configuration should be obtained from.
+
+For example:
+
+```hcl
+source = "./modules/ec2"
+```
+
+or:
+
+```hcl
+source = "terraform-aws-modules/vpc/aws"
+```
+
+For our project, we use a local module:
+
+```text
+project-ec2-module/
+└── modules/
+    └── ec2/
+```
+
+## 15. Module Inputs and Outputs
+
+Modules communicate with their callers using **inputs and outputs**.
+
+### 15.1 Module Inputs
+
+The child module defines variables:
+
+```hcl
+variable "instance_type" {
+  description = "EC2 instance type."
+  type        = string
+}
+```
+
+The root module supplies the value:
+
+```hcl
+module "ec2" {
+  source = "./modules/ec2"
+
+  instance_type = var.instance_type
+}
+```
+
+The value flows from:
+
+```text
+Root Variable
+     |
+     v
+Module Input
+     |
+     v
+EC2 Resource
+```
+
+### 15.2 Module Outputs
+
+The child module defines an output:
+
+```hcl
+output "instance_id" {
+  description = "ID of the EC2 instance."
+  value       = aws_instance.this.id
+}
+```
+
+The root module can then expose that output:
 
 ```hcl
 output "instance_id" {
   description = "EC2 instance ID."
   value       = module.ec2.instance_id
 }
-
-output "public_ip" {
-  description = "EC2 public IP."
-  value       = module.ec2.public_ip
-}
-
-output "public_dns" {
-  description = "EC2 public DNS."
-  value       = module.ec2.public_dns
-}
 ```
 
-Notice the syntax:
+The value flows through:
 
 ```text
-module.<module-name>.<output-name>
+EC2 Resource
+     |
+     v
+Child Module Output
+     |
+     v
+Root Module
+     |
+     v
+Root Output
 ```
 
-For example:
-
-```hcl
-module.ec2.instance_id
-```
+This provides a controlled interface between modules.
 
 ## 16. Remote Git/GitHub Modules
 
-Once a module is developed locally, it can be distributed through Git.
+Instead of storing a module inside the same repository, we can store it in a Git repository.
 
 Example:
+
+```hcl
+module "ec2" {
+  source = "git::https://github.com/example-org/terraform-aws-ec2.git"
+}
+```
+
+A Git tag can be selected:
 
 ```hcl
 module "ec2" {
   source = "git::https://github.com/example-org/terraform-aws-ec2.git?ref=v1.0.0"
-
-  ami_id        = var.ami_id
-  instance_type = var.instance_type
-  instance_name = var.instance_name
-  environment   = var.environment
 }
 ```
 
-Terraform downloads the module when we run:
+A commit SHA can also be referenced.
 
-```bash
-terraform init
-```
-
-If the module source changes, we must initialize again:
-
-```bash
-terraform init
-```
-
-> For already installed modules, `-upgrade` can be used when we intentionally want Terraform to update the selected module version within the allowed constraints. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/configuration))
-
-> The `-upgrade` option tells Terraform to reconsider dependency selections and install newer versions that satisfy the configured constraints, including provider and module dependencies.
-
-### Git Branch Reference
-
-A branch can be referenced:
-
-```hcl
-module "ec2" {
-  source = "git::https://github.com/example-org/terraform-aws-ec2.git?ref=main"
-}
-```
-
-However, using a mutable branch such as `main` for production infrastructure introduces reproducibility risk.
-
-Prefer:
-
-```text
-v1.0.0
-```
-
-or an immutable commit SHA.
+Using a specific immutable revision provides more predictable behavior than continuously tracking a changing branch.
 
 ## 17. Terraform Registry Modules
 
-The Terraform Registry provides Terraform's native module discovery and distribution mechanism for published modules. Organizations can also use private registries or Git-based module distribution depending on their requirements.
+Terraform Registry modules can be consumed using a registry source.
 
 Example:
 
 ```hcl
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "6.0.0"
-
-  # module inputs...
+module "example" {
+  source  = "namespace/module/provider"
+  version = "1.0.0"
 }
 ```
 
-> The exact module version should be selected from the module's documentation rather than blindly using the latest release.
+This allows us to reuse modules maintained by:
 
-The Registry allows consumers to specify module versions and therefore provides a predictable dependency model. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/develop/publish))
+* HashiCorp
+* Partners
+* Community contributors
+* Organizations through private registries
 
-### Private Modules
-
-Organizations may also maintain private modules.
-
-Conceptually:
-
-```text
-                    Organization
-                         |
-                  Private Registry
-                         |
-          +--------------+--------------+
-          |              |              |
-       Network         EC2            EKS
-       Module          Module         Module
-```
-
-This allows platform teams to provide standardized infrastructure building blocks to application teams.
+Registry modules can significantly reduce the amount of infrastructure code we need to implement ourselves.
 
 ## 18. Module Versioning
 
-Versioning is important for production infrastructure.
+Module versioning is important when consuming remote modules.
 
-Consider:
-
-```text
-EC2 Module
-v1.0.0
-v1.1.0
-v2.0.0
-```
-
-A production environment should not unexpectedly switch to a breaking version.
-
-### Registry Module Version
+For example:
 
 ```hcl
-module "ec2" {
-  source  = "example-org/ec2/aws"
+module "example" {
+  source  = "namespace/module/provider"
   version = "1.2.0"
 }
 ```
-
-A version constraint can also be used:
-
-```hcl
-module "ec2" {
-  source  = "example-org/ec2/aws"
-  version = "~> 1.2"
-}
-```
-
-Terraform's version constraints support operators such as:
-
-```text
-=
-!=
->
->=
-<
-<=
-~>
-```
-
-Terraform recommends explicitly constraining module versions when infrastructure depends on third-party modules. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/expressions/version-constraints))
 
 ### Why Versioning Matters
 
@@ -1159,13 +849,13 @@ EC2 Module v1.2.0
 Predictable infrastructure
 ```
 
+Production infrastructure should use deliberate version constraints and controlled upgrades.
+
 ### Important Distinction: Modules vs Providers
 
-Terraform's `.terraform.lock.hcl` records the selected **provider versions and checksums**. It does not serve as a lock file for remote module versions.
+Terraform's `.terraform.lock.hcl` records the selected **provider versions and checksums**.
 
-Remote modules are selected according to their **module source and version constraints**. When deterministic module selection is required, an exact module version can be specified. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/files/dependency-lock))
-
-Therefore:
+It does not serve as a lock file for remote module versions.
 
 ```text
 Provider
@@ -1177,7 +867,29 @@ Module
    +---- version constraint in module block
 ```
 
-> This distinction is important when managing Terraform dependencies.
+This distinction is important when managing Terraform dependencies.
+
+### Updating Modules
+
+If we change a module source or module version, run:
+
+```bash
+terraform init
+```
+
+To reconsider and upgrade already-installed dependencies:
+
+```bash
+terraform init -upgrade
+```
+
+We should then inspect the resulting plan:
+
+```bash
+terraform plan
+```
+
+Module upgrades should never be blindly applied to production infrastructure.
 
 ## 19. Module Design Best Practices
 
@@ -1197,7 +909,7 @@ modules/
 └── rds/
 ```
 
-> Avoid creating one enormous module containing unrelated infrastructure unless there is a deliberate architectural reason.
+We should avoid creating one enormous module containing unrelated infrastructure unless there is a deliberate architectural reason.
 
 ### 19.2 Use Variables for Customization
 
@@ -1225,11 +937,11 @@ output "instance_id" {
 }
 ```
 
-> Avoid exposing every internal implementation detail.
+Avoid exposing every internal implementation detail.
 
 ### 19.4 Document the Module
 
-A reusable module should contain:
+A reusable module should contain documentation.
 
 ```text
 README.md
@@ -1264,134 +976,131 @@ terraform {
 }
 ```
 
-Provider requirements identify the provider source and compatible provider versions. Each module should declare its own provider requirements. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/develop/providers))
+Provider requirements identify the provider source and compatible provider versions.
 
-> A reusable module generally should avoid unnecessarily constraining the caller to one exact provider version unless there is a specific compatibility requirement.
+The reusable module should declare its own provider requirements.
 
 ### 19.6 Root Modules and Child Modules Have Different Versioning Goals
 
-A reusable module can generally specify a minimum compatible Terraform/provider version.
+A reusable module can generally specify a minimum compatible Terraform or provider version.
 
 A root module can impose the versions appropriate for the overall deployment.
 
-HashiCorp's current guidance recommends this distinction: reusable modules should generally constrain minimum versions, while root configurations can use tighter constraints for controlled deployments. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/expressions/version-constraints))
+This allows reusable modules to remain broadly compatible while root configurations can use tighter constraints for controlled deployments.
 
 ### 19.7 Standard Module Structure
 
 A conventional module can look like:
 
 ```text
-terraform-aws-ec2/
-│
-├── versions.tf
-├── main.tf
-├── variables.tf
-├── outputs.tf
-├── README.md
-│
-├── examples/
-│   └── complete/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
-│
-└── .gitignore
+modules/
+└── ec2/
+    ├── README.md
+    ├── main.tf
+    ├── variables.tf
+    ├── outputs.tf
+    └── versions.tf
 ```
 
-For a simple learning module, `examples/` may not be necessary initially.
+This structure makes the module easier to understand and consume.
 
 ## 20. Security Considerations
 
-> Modules do not automatically make infrastructure secure.
+Modules should follow the same security principles as other Terraform configurations.
 
-A poorly designed module can actually spread insecure configuration across multiple environments.
+### 20.1 Never Hard-Code Credentials
 
-### 20.1 Never Hard-Code Secrets
+Do not place AWS credentials directly inside Terraform configuration.
 
 Avoid:
 
 ```hcl
-password = "MyPassword123"
-```
-
-Use:
-
-* AWS Secrets Manager
-* SSM Parameter Store
-* CI/CD secret management
-* IAM roles
-* OIDC
-* Environment-specific secret injection
-
-### 20.2 Avoid Credentials in Variables
-
-Do not create:
-
-```hcl
-variable "aws_secret_key" {}
-```
-
-and pass credentials through Terraform configuration.
-
-> Terraform itself can process sensitive values, but credentials should preferably be provided through the appropriate AWS authentication mechanism.
-
-### 20.3 Sensitive Outputs
-
-If an output contains sensitive information:
-
-```hcl
-output "database_password" {
-  value     = var.database_password
-  sensitive = true
+provider "aws" {
+  access_key = "..."
+  secret_key = "..."
 }
 ```
 
-However, `sensitive = true` primarily controls display behavior; it should not be treated as a substitute for secure secret management.
+Modern authentication mechanisms can include:
 
-### 20.4 Review Third-Party Modules
+* IAM roles
+* AWS CLI profiles
+* OIDC
+* Web identity
+* Short-lived credentials
+* CI/CD federation
 
-Before using a public module:
+### 20.2 Protect Variable Files
 
-1. Review the source repository.
-2. Review resources created by the module.
-3. Check provider requirements.
-4. Check release history.
-5. Check open issues.
-6. Check security practices.
-7. Pin an appropriate version.
-8. Test the module in a non-production environment.
+Variable files may contain sensitive configuration.
+
+Do not commit sensitive values into Git.
+
+A common pattern is:
+
+```text
+terraform.tfvars.example
+```
+
+for the committed template, while the actual:
+
+```text
+terraform.tfvars
+```
+
+remains local and is excluded through `.gitignore` when it contains sensitive values.
+
+### 20.3 Review Module Sources
+
+Before consuming a third-party module, review:
+
+* Source repository
+* Module implementation
+* Inputs
+* Outputs
+* Provider requirements
+* Version
+* Security implications
+* Maintenance status
+
+Do not blindly consume infrastructure code simply because it is publicly available.
 
 ## 21. Troubleshooting
 
 ### Problem 1 — Module Not Found
 
-Error:
-
-```text
-Module not installed
-```
-
-Run:
-
-```bash
-terraform init
-```
-
-### Problem 2 — Changed Module Source
-
-If:
+If Terraform cannot find a local module, verify:
 
 ```hcl
 source = "./modules/ec2"
 ```
 
-is changed, run:
+Also verify that the directory exists:
+
+```text
+modules/
+└── ec2/
+```
+
+Then run:
 
 ```bash
 terraform init
 ```
 
-Terraform must reinitialize the module installation. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/configuration))
+### Problem 2 — Module Source Changed
+
+After changing:
+
+```hcl
+source = "./modules/ec2"
+```
+
+or changing a remote module source, run:
+
+```bash
+terraform init
+```
 
 ### Problem 3 — Changed Registry Module Version
 
@@ -1411,6 +1120,12 @@ run:
 
 ```bash
 terraform init
+```
+
+Then review:
+
+```bash
+terraform plan
 ```
 
 ### Problem 4 — Output Not Found
@@ -1445,7 +1160,7 @@ variable "instance_type" {
 }
 ```
 
-and the caller must provide the value:
+The caller must then provide the value:
 
 ```hcl
 module "ec2" {
@@ -1473,7 +1188,7 @@ terraform {
 
 The caller normally provides the actual AWS provider configuration.
 
-```hcl
+```text
 Root Module
 │
 ├── Provider Requirement
@@ -1484,8 +1199,6 @@ Root Module
     ├── Provider Requirement
     └── Resources
 ```
-
-Provider configurations are shared across modules, while provider requirements are declared by each module. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/develop/providers))
 
 ### Problem 7 — Module Upgrade
 
@@ -1505,36 +1218,33 @@ Never blindly apply module upgrades in production.
 
 ## 22. End-to-End Module Lab
 
-This lab combines the concepts covered so far.
+This lab combines the concepts covered in this section.
 
 ### 22.1 Final Structure
 
 ```text
 03-modules/
-├── README.md
 ├── 01-modules.md
 │
-├── project-ec2-module/
-│   ├── README.md
-│   ├── versions.tf
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── terraform.tfvars.example
-│   ├── .terraform.lock.hcl
-│   ├── outputs.tf
-│   │
-│   └── modules/
-│       └── ec2/
-│           ├── README.md
-│           ├── versions.tf
-│           ├── main.tf
-│           ├── variables.tf
-│           └── outputs.tf
-│
-└── .gitignore
+└── project-ec2-module/
+    ├── README.md
+    ├── versions.tf
+    ├── main.tf
+    ├── variables.tf
+    ├── terraform.tfvars.example
+    ├── .terraform.lock.hcl
+    ├── outputs.tf
+    │
+    └── modules/
+        └── ec2/
+            ├── README.md
+            ├── versions.tf
+            ├── main.tf
+            ├── variables.tf
+            └── outputs.tf
 ```
 
-#### 22.1.1 Prepare the Lab
+### 22.2 Prepare the Lab
 
 Change into the project directory:
 
@@ -1558,13 +1268,13 @@ instance_name = "terraform-module-demo"
 environment   = "dev"
 ```
 
-Then format the configuration:
+Format the configuration:
 
 ```bash
 terraform fmt -recursive
 ```
 
-### 22.2 Root `versions.tf`
+### 22.3 Root `versions.tf`
 
 ```hcl
 terraform {
@@ -1579,7 +1289,7 @@ terraform {
 }
 ```
 
-### 22.3 Root `main.tf`
+### 22.4 Root `main.tf`
 
 ```hcl
 provider "aws" {
@@ -1596,16 +1306,16 @@ module "ec2" {
 }
 ```
 
-### 22.4 Root `variables.tf`
+### 22.5 Root `variables.tf`
 
 ```hcl
 variable "aws_region" {
-  description = "AWS region for deployment."
+  description = "AWS region where the EC2 instance will be created."
   type        = string
 }
 
 variable "ami_id" {
-  description = "AMI ID for the EC2 instance."
+  description = "AMI ID used to launch the EC2 instance."
   type        = string
 }
 
@@ -1616,69 +1326,7 @@ variable "instance_type" {
 }
 
 variable "instance_name" {
-  description = "EC2 Name tag."
-  type        = string
-}
-
-variable "environment" {
-  description = "Deployment environment."
-  type        = string
-}
-```
-
-### 22.5 Root `terraform.tfvars.example`
-
-```hcl
-aws_region    = "us-east-1"
-ami_id        = "<ami-id>"
-instance_type = "t3.micro"
-instance_name = "terraform-module-demo"
-environment   = "dev"
-```
-
-### 22.6 Child Module `versions.tf`
-
-```hcl
-terraform {
-  required_providers {
-    aws = {
-      source = "hashicorp/aws"
-    }
-  }
-}
-```
-
-The child module declares the AWS provider requirement but does not need to configure the AWS region itself. The root module normally provides the provider configuration.
-
-### 22.7 Child Module `main.tf`
-
-```hcl
-resource "aws_instance" "this" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-
-  tags = {
-    Name        = var.instance_name
-    Environment = var.environment
-  }
-}
-```
-
-### 22.8 Child Module `variables.tf`
-
-```hcl
-variable "ami_id" {
-  description = "AMI ID used by the EC2 instance."
-  type        = string
-}
-
-variable "instance_type" {
-  description = "EC2 instance type."
-  type        = string
-}
-
-variable "instance_name" {
-  description = "EC2 instance name."
+  description = "Name tag for the EC2 instance."
   type        = string
 }
 
@@ -1688,26 +1336,7 @@ variable "environment" {
 }
 ```
 
-### 22.9 Child Module `outputs.tf`
-
-```hcl
-output "instance_id" {
-  description = "EC2 instance ID."
-  value       = aws_instance.this.id
-}
-
-output "public_ip" {
-  description = "EC2 public IP address."
-  value       = aws_instance.this.public_ip
-}
-
-output "public_dns" {
-  description = "EC2 public DNS."
-  value       = aws_instance.this.public_dns
-}
-```
-
-### 22.10 Root `outputs.tf`
+### 22.6 Root `outputs.tf`
 
 ```hcl
 output "instance_id" {
@@ -1721,30 +1350,101 @@ output "public_ip" {
 }
 
 output "public_dns" {
-  description = "EC2 public DNS."
+  description = "EC2 public DNS address."
   value       = module.ec2.public_dns
 }
 ```
 
-The complete execution sequence for this project is covered in the next section.
+### 22.7 Child Module `versions.tf`
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+    }
+  }
+}
+```
+
+### 22.8 Child Module `variables.tf`
+
+```hcl
+variable "ami_id" {
+  description = "AMI ID used to launch the EC2 instance."
+  type        = string
+}
+
+variable "instance_type" {
+  description = "EC2 instance type."
+  type        = string
+}
+
+variable "instance_name" {
+  description = "Name tag for the EC2 instance."
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name."
+  type        = string
+}
+```
+
+### 22.9 Child Module `main.tf`
+
+```hcl
+resource "aws_instance" "this" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+
+  tags = {
+    Name        = var.instance_name
+    Environment = var.environment
+  }
+}
+```
+
+### 22.10 Child Module `outputs.tf`
+
+```hcl
+output "instance_id" {
+  description = "ID of the EC2 instance."
+  value       = aws_instance.this.id
+}
+
+output "public_ip" {
+  description = "Public IP address of the EC2 instance."
+  value       = aws_instance.this.public_ip
+}
+
+output "public_dns" {
+  description = "Public DNS name of the EC2 instance."
+  value       = aws_instance.this.public_dns
+}
+```
 
 ## 23. Execution Workflow
 
-From the root module:
+From:
 
-### Step 1 — Format
-
-```bash
-terraform fmt -recursive
+```text
+03-modules/project-ec2-module/
 ```
 
-### Step 2 — Initialize
+run:
+
+### Step 1 — Initialize
 
 ```bash
 terraform init
 ```
 
-Terraform initializes the working directory and installs the required provider and child module.
+### Step 2 — Format
+
+```bash
+terraform fmt -recursive
+```
 
 ### Step 3 — Validate
 
@@ -1752,71 +1452,17 @@ Terraform initializes the working directory and installs the required provider a
 terraform validate
 ```
 
-### Step 4 — Inspect Modules
-
-With Terraform v1.10+, we can use the `terraform modules` command to inspect the module tree and module dependencies:
-
-```bash
-terraform modules
-```
-
-This command provides a view of declared modules, including their keys, sources, versions, and module hierarchy. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/cli/commands/modules))
-
-> **Note:** Command availability and behavior should be verified against the Terraform CLI version used in the lab.
-
-### Step 5 — Plan
+### Step 4 — Review Plan
 
 ```bash
 terraform plan
 ```
 
-Review the proposed infrastructure changes carefully.
-
-### Step 6 — Apply
+### Step 5 — Apply
 
 ```bash
 terraform apply
 ```
-
-Confirm the operation when prompted:
-
-```bash
-yes
-```
-
-### Step 7 — Inspect Outputs
-
-```bash
-terraform output
-```
-
-The outputs should display the EC2 instance ID, public IP, and public DNS.
-
-### Step 8 — Inspect State
-
-```bash
-terraform state list
-```
-
-We should see a resource address similar to:
-
-```text
-module.ec2.aws_instance.this
-```
-
-This demonstrates that the EC2 resource is now managed through the module.
-
-## 24. Cleanup
-
-After completing the lab, infrastructure must be removed to prevent unnecessary AWS charges.
-
-From the root module:
-
-```bash
-terraform destroy
-```
-
-Review the proposed destruction.
 
 Confirm:
 
@@ -1824,75 +1470,144 @@ Confirm:
 yes
 ```
 
-Verify:
+### Step 6 — Inspect Outputs
+
+```bash
+terraform output
+```
+
+### Step 7 — Inspect State
 
 ```bash
 terraform state list
 ```
 
-The managed resources should no longer be present.
+We should see the module-managed resource.
 
-If the project is only a temporary practice environment, the following local Terraform artifacts can be removed after the infrastructure has been destroyed:
+## 24. Cleanup
+
+Always clean up infrastructure after completing the lab if the resources are no longer required.
+
+From:
 
 ```text
-.terraform/
-terraform.tfstate
-terraform.tfstate.backup
+project-ec2-module/
 ```
 
-The local `terraform.tfvars` file should also remain uncommitted if it contains environment-specific or sensitive values.
+run:
 
-However:
+```bash
+terraform destroy
+```
 
-> Do not delete state files as a substitute for `terraform destroy`.
+Review the proposed destruction and confirm:
 
-Terraform state contains the information Terraform uses to manage infrastructure.
+```text
+yes
+```
 
-For a real production project, state management and retention must follow the organization's backend and recovery policies.
+Terraform will destroy the EC2 instance managed by the module.
 
-> **Important:** `.terraform.lock.hcl` should normally be committed to version control. It records provider selections and checksums and helps ensure consistent provider installation across environments. It should not normally be treated as a disposable cleanup artifact.
+### 24.1 Verify Cleanup
+
+Run:
+
+```bash
+terraform state list
+```
+
+The EC2 resource should no longer appear.
+
+We can also verify the instance through the AWS Management Console or AWS CLI.
+
+### Important
+
+Do **not** simply delete:
+
+```text
+terraform.tfstate
+```
+
+to remove infrastructure.
+
+Deleting Terraform state does not delete the actual AWS resources.
+
+The correct process is:
+
+```text
+terraform destroy
+       |
+       v
+AWS Resources Deleted
+       |
+       v
+Terraform State Updated
+```
 
 ## 25. Key Takeaways
 
-The most important concepts from this section are:
+After completing this section, we should be able to:
 
-1. A module is a reusable Terraform configuration.
-2. The directory where Terraform is executed is normally the root module.
-3. A module called by another module is a child module.
-4. Modules reduce duplication.
-5. Modules improve standardization.
-6. Modules can expose inputs through variables.
-7. Modules can expose outputs through `output` blocks.
-8. Modules can be stored locally.
-9. Modules can be stored in Git/GitHub.
-10. Modules can be published to the Terraform Registry.
-11. Private registries can be used for organizational modules.
-12. Registry modules support version constraints.
-13. Git modules can use tags or commit references.
-14. `terraform init` installs modules.
-15. `terraform init -upgrade` can upgrade installed modules within allowed constraints.
-16. Module versions should be deliberately controlled.
-17. `.terraform.lock.hcl` locks provider selections, not remote module selections.
-18. Reusable modules should declare provider requirements.
-19. Secrets should never be hard-coded.
-20. Modules should have a clear responsibility and documented interface.
+* Understand the purpose of Terraform modules.
+* Distinguish between root and child modules.
+* Create a local Terraform module.
+* Define module input variables.
+* Pass values from a root module to a child module.
+* Define module outputs.
+* Consume child-module outputs from the root module.
+* Understand local, Git/GitHub, and Terraform Registry modules.
+* Understand module versioning.
+* Understand provider requirements versus provider configuration.
+* Initialize and validate a module-based Terraform project.
+* Inspect module-managed resources.
+* Execute and validate infrastructure deployment.
+* Safely destroy infrastructure after completing a lab.
+* Apply module design best practices.
+* Understand basic module security considerations.
+* Troubleshoot common module issues.
+* Understand how the same module pattern can be extended to larger infrastructure projects.
 
 ## 26. Interview Questions and Answers
 
 ### Q1. What is a Terraform module?
 
 **Answer:**
+
 A Terraform module is a collection of Terraform configuration files that are managed together and can be reused by another Terraform configuration.
 
-### Q2. What is the root module?
+### Q2. What is the difference between a root module and a child module?
 
 **Answer:**
-The root module is the Terraform configuration from which Terraform commands such as `terraform plan` and `terraform apply` are executed.
 
-### Q3. What is a child module?
+The root module is the Terraform configuration from which we execute Terraform commands.
 
-**Answer:**
 A child module is a module called by another module.
+
+```text
+Root Module
+     |
+     v
+Child Module
+```
+
+### Q3. Why do we use Terraform modules?
+
+**Answer:**
+
+Modules help us:
+
+* Reuse Terraform configuration
+* Reduce code duplication
+* Standardize infrastructure
+* Improve maintainability
+* Organize larger Terraform projects
+* Scale infrastructure configurations
+
+### Q4. What is a local module?
+
+**Answer:**
+
+A local module is a module stored within the same repository or local filesystem.
 
 Example:
 
@@ -1902,49 +1617,36 @@ module "ec2" {
 }
 ```
 
-Here, `modules/ec2` is the child module.
-
-### Q4. Why do we use Terraform modules?
+### Q5. What does the `source` argument do?
 
 **Answer:**
 
-Modules provide:
+`source` tells Terraform where the module configuration should be obtained from.
 
-* Reusability
-* Standardization
-* Maintainability
-* Reduced duplication
-* Scalability
-* Better separation of responsibilities
-
-### Q5. What are the common sources of Terraform modules?
-
-**Answer:**
-
-Terraform supports module sources including:
-
-* Local filesystem
-* Terraform Registry
-* Git repositories
-* GitHub
-* Other supported remote package sources
-* Private registries
-
-([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/configuration))
-
-### Q6. How do we call a local module?
-
-**Answer:**
+Example:
 
 ```hcl
-module "ec2" {
-  source = "./modules/ec2"
-}
+source = "./modules/ec2"
 ```
 
-### Q7. How do we pass values to a module?
+### Q6. What are the common module sources?
 
 **Answer:**
+
+Common module sources include:
+
+* Local modules
+* Git/GitHub modules
+* Terraform Registry modules
+* Private module registries
+
+### Q7. How do modules receive values?
+
+**Answer:**
+
+Modules receive values through input variables.
+
+Example:
 
 ```hcl
 module "ec2" {
@@ -1954,7 +1656,7 @@ module "ec2" {
 }
 ```
 
-The child module receives the value through:
+The child module defines:
 
 ```hcl
 variable "instance_type" {
@@ -1962,43 +1664,37 @@ variable "instance_type" {
 }
 ```
 
-### Q8. How do we access module outputs?
+### Q8. How do modules return values?
 
 **Answer:**
 
+Modules return values through outputs.
+
+Child module:
+
 ```hcl
-module.ec2.instance_id
+output "instance_id" {
+  value = aws_instance.this.id
+}
 ```
 
-The syntax is:
+Root module:
 
-```text
-module.<module-name>.<output-name>
+```hcl
+output "instance_id" {
+  value = module.ec2.instance_id
+}
 ```
 
-### Q9. What is the purpose of the `source` argument?
+### Q9. Can we specify `version` for a local module?
 
 **Answer:**
-`source` tells Terraform where the module configuration should be obtained from.
 
-Example:
+No.
 
-```hcl
-source = "./modules/ec2"
-```
+The `version` argument applies to modules installed from a registry. Local modules do not support registry-style module version constraints.
 
-or:
-
-```hcl
-source = "terraform-aws-modules/vpc/aws"
-```
-
-### Q10. Can we specify `version` for a local module?
-
-**Answer:**
-No. The `version` argument applies to modules installed from a registry. Local modules do not support registry-style module version constraints. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/block/module))
-
-### Q11. How do we specify a Git module version?
+### Q10. How do we specify a Git module version?
 
 **Answer:**
 
@@ -2010,26 +1706,25 @@ source = "git::https://github.com/example-org/terraform-aws-ec2.git?ref=v1.0.0"
 
 A commit SHA can also be referenced.
 
-### Q12. What happens when we change the module source?
+### Q11. What happens when we change the module source?
 
 **Answer:**
-We must run:
+
+We should run:
 
 ```bash
 terraform init
 ```
 
-so Terraform can install/update the module source. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/modules/configuration))
+so Terraform can install or update the module source.
 
-### Q13. What is the difference between provider version and module version?
+### Q12. What is the difference between provider version and module version?
 
 **Answer:**
 
 A provider is a plugin that allows Terraform to communicate with an infrastructure platform.
 
 A module is reusable Terraform configuration.
-
-For example:
 
 ```text
 AWS Provider
@@ -2044,11 +1739,14 @@ EC2 Module
 AWS EC2
 ```
 
-Provider versions are tracked in `.terraform.lock.hcl`; remote module versions are controlled by module source/version constraints. ([HashiCorp Developer](https://developer.hashicorp.com/terraform/language/files/dependency-lock))
+Provider versions are tracked in `.terraform.lock.hcl`.
 
-### Q14. Should modules hard-code AWS credentials?
+Remote module versions are controlled through the module source and version constraints.
+
+### Q13. Should modules hard-code AWS credentials?
 
 **Answer:**
+
 No.
 
 Modern implementations should use secure authentication mechanisms such as:
@@ -2060,24 +1758,27 @@ Modern implementations should use secure authentication mechanisms such as:
 * Short-lived credentials
 * CI/CD federation
 
-### Q15. Should production modules always use the latest version?
+### Q14. Should production modules always use the latest version?
 
 **Answer:**
+
 No.
 
 Production infrastructure should use deliberate version constraints and controlled upgrades.
 
-### Q16. What is `terraform init -upgrade`?
+### Q15. What is `terraform init -upgrade`?
 
 **Answer:**
+
 It tells Terraform to reconsider and upgrade already-installed dependencies, including modules, within their configured constraints.
 
-### Q17. Can a child module call another child module?
+### Q16. Can a child module call another child module?
 
 **Answer:**
+
 Yes.
 
-Terraform supports nested modules:
+Terraform supports nested modules.
 
 ```text
 Root Module
@@ -2089,14 +1790,16 @@ Root Module
     +---- Compute Module
 ```
 
-### Q18. Why are outputs important in modules?
+### Q17. Why are outputs important in modules?
 
 **Answer:**
+
 Outputs provide a controlled interface through which the calling module can consume values generated by the child module.
 
-### Q19. Why should we pin module versions?
+### Q18. Why should we pin module versions?
 
 **Answer:**
+
 To prevent unexpected module changes from silently affecting infrastructure.
 
 For example:
@@ -2107,7 +1810,7 @@ version = "1.2.0"
 
 provides much more predictable behavior than relying on an unconstrained latest release.
 
-### Q20. What is the difference between a Terraform module and a resource?
+### Q19. What is the difference between a Terraform module and a resource?
 
 **Answer:**
 
@@ -2119,7 +1822,7 @@ resource "aws_instance" "this" {
 }
 ```
 
-A module is a reusable collection of Terraform configuration that may contain multiple resources:
+A module is a reusable collection of Terraform configuration that may contain multiple resources.
 
 ```text
 EC2 Module
@@ -2128,3 +1831,55 @@ EC2 Module
 ├── IAM
 └── CloudWatch
 ```
+
+### Q20. What is the difference between provider requirements and provider configuration?
+
+**Answer:**
+
+Provider requirements declare which provider a module requires.
+
+Example:
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+    }
+  }
+}
+```
+
+Provider configuration specifies how Terraform should connect to the provider.
+
+Example:
+
+```hcl
+provider "aws" {
+  region = var.aws_region
+}
+```
+
+The root module normally provides the provider configuration, while reusable modules declare their provider requirements.
+
+### Final Mental Model
+
+```text
+                         Terraform
+                            |
+                        Root Module
+                            |
+             +--------------+--------------+
+             |              |              |
+      Network Module  Compute Module  Database Module
+                            |
+                       EC2 Module
+                            |
+                      aws_instance
+                            |
+                         AWS EC2
+```
+
+The key idea is:
+
+> A Terraform module packages infrastructure configuration into a reusable building block with inputs and outputs.
