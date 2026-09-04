@@ -1,13 +1,14 @@
+# Configure the AWS provider for the root module.
 provider "aws" {
   region = var.aws_region
 }
 
-resource "aws_instance" "this" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
+# Call the reusable local EC2 child module.
+module "ec2" {
+  source = "./modules/ec2"
 
-  tags = {
-    Name        = var.instance_name
-    Environment = var.environment
-  }
+  ami_id        = var.ami_id
+  instance_type = var.instance_type
+  instance_name = var.instance_name
+  environment   = var.environment
 }
