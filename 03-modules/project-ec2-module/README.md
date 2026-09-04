@@ -1,6 +1,42 @@
 
 ## Terraform EC2 Module — Practical Project
 
+> **File:** `README.md`
+
+## Table of Contents
+
+* [Overview](#overview)
+* [Architecture](#architecture)
+* [Project Structure](#project-structure)
+* [Prerequisites](#prerequisites)
+* [Module Design](#module-design)
+* [Step-by-Step Execution](#step-by-step-execution)
+  * [Step 1 — Create the Local Variables File](#step-1--create-the-local-variables-file)
+  * [Step 2 — Review the Root Module](#step-2--review-the-root-module)
+  * [Step 3 — Initialize Terraform](#step-3--initialize-terraform)
+  * [Step 4 — Format the Configuration](#step-4--format-the-configuration)
+  * [Step 5 — Validate the Configuration](#step-5--validate-the-configuration)
+  * [Step 6 — Review the Terraform Plan](#step-6--review-the-terraform-plan)
+  * [Step 7 — Apply the Configuration](#step-7--apply-the-configuration)
+  * [Step 8 — Review Terraform Outputs](#step-8--review-terraform-outputs)
+  * [Step 9 — Inspect Terraform State](#step-9--inspect-terraform-state)
+  * [Understanding the Complete Data Flow](#understanding-the-complete-data-flow)
+* [Module Files](#module-files)
+  * [Root `versions.tf`](#root-versionstf)
+  * [Root `variables.tf`](#root-variablestf)
+  * [Root `main.tf`](#root-maintf)
+  * [Root `outputs.tf`](#root-outputstf)
+* [Child Module](#child-module-1)
+  * [`modules/ec2/versions.tf`](#modulesec2versionstf)
+  * [`modules/ec2/variables.tf`](#modulesec2variablestf)
+  * [`modules/ec2/main.tf`](#modulesec2maintf)
+  * [`modules/ec2/outputs.tf`](#modulesec2outputstf)
+* [Validation Checklist](#validation-checklist)
+* [Cleanup](#cleanup)
+* [Learning Outcomes](#learning-outcomes)
+* [Related Documentation](#related-documentation)
+* [Final Project Flow](#final-project-flow)
+
 ## Overview
 
 This project demonstrates how a standard Terraform EC2 configuration can be transformed into a reusable **Terraform module**.
@@ -29,18 +65,18 @@ For the conceptual and detailed explanation of Terraform Modules, refer to:
 The project follows a simple root-module and child-module architecture:
 
 ```text
-                  Root Module
-               project-ec2-module/
-                       |
-                       |
-                  module "ec2"
-                       |
-                       v
-                EC2 Child Module
-                  modules/ec2/
-                       |
-                       v
-                AWS EC2 Instance
+                   Root Module
+                project-ec2-module/
+                        |
+                        |
+                   module "ec2"
+                        |
+                        v
+                 EC2 Child Module
+                   modules/ec2/
+                        |
+                        v
+                 AWS EC2 Instance
 ```
 
 The root module is responsible for:
@@ -66,7 +102,7 @@ project-ec2-module/
 ├── versions.tf
 ├── main.tf
 ├── variables.tf
-├── terraform.tfvars
+├── terraform.tfvars.example
 ├── outputs.tf
 │
 └── modules/
@@ -79,14 +115,14 @@ project-ec2-module/
 
 ### Root Module
 
-| File               | Purpose                                         |
-| ------------------ | ----------------------------------------------- |
-| `versions.tf`      | Defines Terraform and AWS provider requirements |
-| `main.tf`          | Configures AWS and calls the EC2 module         |
-| `variables.tf`     | Defines root module input variables             |
-| `terraform.tfvars` | Provides values for the root variables          |
-| `outputs.tf`       | Exposes values returned by the EC2 module       |
-| `README.md`        | Documents the practical project                 |
+| File                       | Purpose                                              |
+| -------------------------- | ---------------------------------------------------- |
+| `versions.tf`              | Defines Terraform and AWS provider requirements      |
+| `main.tf`                  | Configures AWS and calls the EC2 module              |
+| `variables.tf`             | Defines root module input variables                  |
+| `terraform.tfvars.example` | Provides an example configuration for root variables |
+| `outputs.tf`               | Exposes values returned by the EC2 module            |
+| `README.md`                | Documents the practical project                      |
 
 ### Child Module
 
@@ -121,7 +157,7 @@ The project should be executed using a currently supported Terraform CLI release
 
 Record the exact Terraform version used for the project so that the execution environment remains reproducible.
 
-## Verify AWS CLI
+### Verify AWS CLI
 
 Run:
 
@@ -141,74 +177,86 @@ A successful response confirms that the AWS CLI can authenticate with the config
 
 Example:
 
-```json
+```text
 {
-  "UserId": "AIDXXXXXXXXXXXXXXX",
-  "Account": "123456789012",
-  "Arn": "arn:aws:iam::123456789012:user/example"
+    "UserId": "...",
+    "Account": "...",
+    "Arn": "..."
 }
 ```
 
-The actual identity will depend on the configured AWS authentication mechanism.
+> Do not commit AWS credentials to the repository.
 
-## AWS Authentication
+## Module Design
 
-This project does not store AWS credentials in Terraform configuration.
+The project follows a simple input/output interface.
 
-Recommended authentication approaches include:
+```text
+Root Module
+     |
+     | Inputs
+     v
+EC2 Child Module
+     |
+     | Creates
+     v
+AWS EC2 Instance
+     |
+     | Outputs
+     v
+Root Module
+```
 
-* AWS CLI profiles
-* IAM roles
-* Environment-based credentials
-* Web identity
-* OIDC-based authentication for CI/CD
-* Short-lived credentials
+The root module supplies:
 
-Avoid hard-coding access keys or secret keys in `.tf` files.
+* AMI ID
+* Instance type
+* Instance name
+* Environment
 
-## Configuration
+The child module returns:
 
-### 1. Configure `terraform.tfvars`
+* Instance ID
+* Public IP
+* Public DNS
 
-Update:
+## Step-by-Step Execution
+
+### Step 1 — Create the Local Variables File
+
+The repository contains:
+
+```text
+terraform.tfvars.example
+```
+
+Create the local `terraform.tfvars` file from the example:
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Then update the values:
 
 ```hcl
-aws_region    = "ap-south-1"
+aws_region    = "us-east-1"
 ami_id        = "<ami-id>"
 instance_type = "t3.micro"
 instance_name = "terraform-module-demo"
 environment   = "dev"
 ```
 
-Replace:
+> `terraform.tfvars` should normally remain uncommitted when it contains environment-specific or sensitive values.
 
-```text
-<ami-id>
-```
+### Step 2 — Review the Root Module
 
-with an AMI ID that is valid for the selected AWS region.
-
-> AMI IDs are region-specific. An AMI that exists in one AWS region may not exist in another.
-
-## Module Inputs
-
-The root module passes the following values to the EC2 child module:
-
-```text
-Root Module
-     |
-     | ami_id
-     | instance_type
-     | instance_name
-     | environment
-     |
-     v
-EC2 Module
-```
-
-The module call is defined in `main.tf`:
+The root module configures the AWS provider and calls the child module.
 
 ```hcl
+provider "aws" {
+  region = var.aws_region
+}
+
 module "ec2" {
   source = "./modules/ec2"
 
@@ -219,60 +267,40 @@ module "ec2" {
 }
 ```
 
-The child module receives these values through its `variables.tf`.
-
-## Module Outputs
-
-The EC2 module exposes:
-
-```text
-instance_id
-public_ip
-public_dns
-```
-
-The root module consumes these outputs:
+The important part is:
 
 ```hcl
-output "instance_id" {
-  description = "EC2 instance ID."
-  value       = module.ec2.instance_id
-}
-
-output "public_ip" {
-  description = "EC2 public IP address."
-  value       = module.ec2.public_ip
-}
-
-output "public_dns" {
-  description = "EC2 public DNS."
-  value       = module.ec2.public_dns
+module "ec2" {
+  source = "./modules/ec2"
 }
 ```
 
-The general module output syntax is:
+The `source` tells Terraform where the local child module is located.
+
+### Step 3 — Initialize Terraform
+
+From:
 
 ```text
-module.<module-name>.<output-name>
+03-modules/project-ec2-module/
 ```
 
-For this project:
+run:
 
-```text
-module.ec2.instance_id
-module.ec2.public_ip
-module.ec2.public_dns
+```bash
+terraform init
 ```
 
-## Execution
+Terraform initializes:
 
-All Terraform commands should be executed from the project root:
+* The working directory
+* The AWS provider
+* The local module
+* Dependency information
 
-```text
-project-ec2-module/
-```
+A successful initialization should complete without errors.
 
-### Step 1 — Format the Configuration
+### Step 4 — Format the Configuration
 
 Run:
 
@@ -280,25 +308,9 @@ Run:
 terraform fmt -recursive
 ```
 
-This formats Terraform configuration files, including files inside the module directory.
+This formats Terraform configuration files, including files inside the child module.
 
-### Step 2 — Initialize Terraform
-
-Run:
-
-```bash
-terraform init
-```
-
-Terraform initializes the working directory and installs the required AWS provider and local module dependencies.
-
-A successful initialization should display a message similar to:
-
-```text
-Terraform has been successfully initialized!
-```
-
-### Step 3 — Validate the Configuration
+### Step 5 — Validate the Configuration
 
 Run:
 
@@ -312,25 +324,9 @@ Expected result:
 Success! The configuration is valid.
 ```
 
-This confirms that the Terraform configuration is syntactically valid and internally consistent.
+This confirms that the Terraform configuration is syntactically and structurally valid.
 
-### Step 4 — Inspect the Module
-
-Run:
-
-```bash
-terraform modules
-```
-
-This displays information about the modules declared in the configuration.
-
-The project should show the local EC2 module:
-
-```text
-module.ec2
-```
-
-### Step 5 — Review the Execution Plan
+### Step 6 — Review the Terraform Plan
 
 Run:
 
@@ -340,17 +336,25 @@ terraform plan
 
 Review the proposed changes carefully.
 
-The plan should show that Terraform intends to create an EC2 instance through the module.
+The plan should show the EC2 instance that will be created through the module.
 
-The resource address will be similar to:
+Conceptually:
 
 ```text
-module.ec2.aws_instance.this
+Root Module
+     |
+     v
+module.ec2
+     |
+     v
+aws_instance.this
 ```
 
-No infrastructure should be created by `terraform plan`.
+The module itself is not an AWS resource.
 
-### Step 6 — Apply the Configuration
+The child module contains the resource that Terraform ultimately creates.
+
+### Step 7 — Apply the Configuration
 
 Run:
 
@@ -358,9 +362,9 @@ Run:
 terraform apply
 ```
 
-Review the execution plan.
+Review the proposed changes.
 
-When prompted, enter:
+Confirm:
 
 ```text
 yes
@@ -368,25 +372,43 @@ yes
 
 Terraform will create the EC2 instance.
 
-## Validation
+### Step 8 — Review Terraform Outputs
 
-After the deployment completes, verify the Terraform outputs:
+Run:
 
 ```bash
 terraform output
 ```
 
-Expected outputs include:
+The root module exposes values returned by the child module.
+
+Example:
 
 ```text
 instance_id = "i-xxxxxxxxxxxxxxxxx"
-public_ip   = "x.x.x.x"
-public_dns  = "ec2-x-x-x-x.region.compute.amazonaws.com"
+public_dns  = "ec2-xx-xx-xx-xx.compute-1.amazonaws.com"
+public_ip   = "xx.xx.xx.xx"
 ```
 
-The exact values will depend on the EC2 instance created.
+The output flow is:
 
-### Validate Terraform State
+```text
+aws_instance.this
+        |
+        v
+Child Module Output
+        |
+        v
+module.ec2.instance_id
+        |
+        v
+Root Module Output
+        |
+        v
+terraform output
+```
+
+### Step 9 — Inspect Terraform State
 
 Run:
 
@@ -394,231 +416,255 @@ Run:
 terraform state list
 ```
 
-The resource address should resemble:
+The resource managed by the module should appear in the state.
+
+The resource address will follow the module path:
 
 ```text
 module.ec2.aws_instance.this
 ```
 
-This confirms that the EC2 resource is managed through the child module.
+This demonstrates an important Terraform concept:
 
-### Validate from AWS CLI
+> Resources created inside a child module are addressed through the module path.
 
-The instance can also be inspected using AWS CLI.
+### Understanding the Complete Data Flow
 
-For example:
-
-```bash
-aws ec2 describe-instances \
-  --region ap-south-1
-```
-
-For a production or larger environment, the query should normally be narrowed using appropriate filters rather than returning every instance in the region.
-
-## Module Data Flow
-
-The complete data flow is:
+The complete project flow is:
 
 ```text
-    terraform.tfvars
-          |
-          v
-    Root Variables
-          |
-          v
-    module "ec2"
-          |
-          | Inputs
-          v
-+---------------------+
-|     EC2 Module      |
-|                     |
-|    variables.tf     |
-|         |           |
-|         v           |
-|      main.tf        |
-|         |           |
-|         v           |
-|  aws_instance.this  |
-|         |           |
-|         v           |
-|     outputs.tf      |
-+---------------------+
-          |
-          | Outputs
-          v
-    Root outputs.tf
-          |
-          v
-    terraform output
-```
-
-This demonstrates the fundamental module pattern:
-
-```text
-Input
-  ↓
-Module
-  ↓
-Infrastructure
-  ↓
-Output
-```
-
-## Expected Result
-
-After a successful `terraform apply`:
-
-```text
-Terraform Configuration
-        |
-        v
-Root Module
-        |
-        v
-EC2 Child Module
-        |
-        v
-AWS EC2 Instance
-        |
-        +---- Instance ID
-        +---- Public IP
-        +---- Public DNS
-```
-
-The EC2 instance is managed by Terraform through the reusable child module.
-
-## Common Commands
-
-The following commands are useful while working with this project.
-
-### Format
-
-```bash
-terraform fmt -recursive
-```
-
-### Initialize
-
-```bash
-terraform init
-```
-
-### Validate
-
-```bash
-terraform validate
-```
-
-### Inspect Modules
-
-```bash
-terraform modules
-```
-
-### Plan
-
-```bash
-terraform plan
-```
-
-### Apply
-
-```bash
-terraform apply
-```
-
-### View Outputs
-
-```bash
+terraform.tfvars
+       |
+       v
+Root Variables
+       |
+       v
+module "ec2"
+       |
+       | Inputs
+       v
+Child Module Variables
+       |
+       v
+aws_instance.this
+       |
+       | Outputs
+       v
+Child Module Outputs
+       |
+       v
+Root Module Outputs
+       |
+       v
 terraform output
 ```
 
-### List Managed Resources
+This is the fundamental pattern for Terraform modules:
 
-```bash
-terraform state list
+```text
+Inputs
+   |
+   v
+Module
+   |
+   v
+Resources
+   |
+   v
+Outputs
 ```
 
-### Destroy Infrastructure
+## Module Files
 
-```bash
-terraform destroy
+### Root `versions.tf`
+
+```hcl
+terraform {
+  required_version = ">= 1.15.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.60"
+    }
+  }
+}
 ```
 
-## Troubleshooting
+### Root `variables.tf`
 
-### Module Not Installed
+```hcl
+variable "aws_region" {
+  description = "AWS region where the EC2 instance will be created."
+  type        = string
+}
 
-If Terraform reports that a module has not been installed, run:
+variable "ami_id" {
+  description = "AMI ID used to launch the EC2 instance."
+  type        = string
+}
 
-```bash
-terraform init
+variable "instance_type" {
+  description = "EC2 instance type."
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "instance_name" {
+  description = "Name tag for the EC2 instance."
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name."
+  type        = string
+}
 ```
 
-### Configuration Changed
-
-After changing the module source or other dependency-related configuration, reinitialize Terraform:
-
-```bash
-terraform init
-```
-
-### Provider Initialization Problems
-
-Run:
-
-```bash
-terraform init
-```
-
-If we intentionally need to upgrade installed dependencies within the configured constraints:
-
-```bash
-terraform init -upgrade
-```
-
-Review the resulting plan before applying any changes.
-
-### Invalid AMI
-
-If AWS reports that the AMI is invalid, verify that the AMI exists in the selected region.
-
-Check the configured region:
-
-```bash
-aws configure get region
-```
-
-The region used by Terraform is controlled by:
+### Root `main.tf`
 
 ```hcl
 provider "aws" {
   region = var.aws_region
 }
+
+module "ec2" {
+  source = "./modules/ec2"
+
+  ami_id        = var.ami_id
+  instance_type = var.instance_type
+  instance_name = var.instance_name
+  environment   = var.environment
+}
 ```
 
-### Authentication Failure
+### Root `outputs.tf`
 
-Run:
+```hcl
+output "instance_id" {
+  description = "EC2 instance ID."
+  value       = module.ec2.instance_id
+}
+
+output "public_ip" {
+  description = "EC2 public IP address."
+  value       = module.ec2.public_ip
+}
+
+output "public_dns" {
+  description = "EC2 public DNS address."
+  value       = module.ec2.public_dns
+}
+```
+
+## Child Module
+
+### `modules/ec2/versions.tf`
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+    }
+  }
+}
+```
+
+### `modules/ec2/variables.tf`
+
+```hcl
+variable "ami_id" {
+  description = "AMI ID used to launch the EC2 instance."
+  type        = string
+}
+
+variable "instance_type" {
+  description = "EC2 instance type."
+  type        = string
+}
+
+variable "instance_name" {
+  description = "Name tag for the EC2 instance."
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name."
+  type        = string
+}
+```
+
+### `modules/ec2/main.tf`
+
+```hcl
+resource "aws_instance" "this" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+
+  tags = {
+    Name        = var.instance_name
+    Environment = var.environment
+  }
+}
+```
+
+### `modules/ec2/outputs.tf`
+
+```hcl
+output "instance_id" {
+  description = "ID of the EC2 instance."
+  value       = aws_instance.this.id
+}
+
+output "public_ip" {
+  description = "Public IP address of the EC2 instance."
+  value       = aws_instance.this.public_ip
+}
+
+output "public_dns" {
+  description = "Public DNS name of the EC2 instance."
+  value       = aws_instance.this.public_dns
+}
+```
+
+## Validation Checklist
+
+After applying the configuration, verify:
+
+### Terraform
 
 ```bash
-aws sts get-caller-identity
+terraform validate
 ```
 
-If this command fails, resolve the AWS authentication issue before running Terraform.
+### Terraform State
+
+```bash
+terraform state list
+```
+
+Expected resource path:
+
+```text
+module.ec2.aws_instance.this
+```
+
+### Terraform Outputs
+
+```bash
+terraform output
+```
+
+### AWS
+
+Verify the EC2 instance through the AWS Management Console or AWS CLI.
 
 ## Cleanup
 
-**Always clean up the infrastructure after completing the lab if the resources are no longer required.**
+Always clean up the infrastructure after completing the lab if the resources are no longer required.
 
-From:
-
-```text
-project-ec2-module/
-```
-
-run:
+Run:
 
 ```bash
 terraform destroy
@@ -642,9 +688,9 @@ terraform state list
 
 The EC2 resource should no longer appear.
 
-We can also verify the instance in the AWS Management Console or AWS CLI.
+We can also verify the instance through the AWS Management Console or AWS CLI.
 
-### Important
+### Important: Do Not Delete Terraform State
 
 Do **not** simply delete:
 
@@ -668,7 +714,7 @@ AWS Resources Deleted
 Terraform State Updated
 ```
 
-## Learning Outcome
+## Learning Outcomes
 
 After completing this project, we should be able to:
 
@@ -689,7 +735,7 @@ After completing this project, we should be able to:
 
 For the conceptual and detailed explanation of Terraform Modules, refer to:
 
-**[../01-modules.md](../01-modules.md)**
+**[Terraform Modules — Complete Guide](../01-modules.md)**
 
 The main guide covers:
 
@@ -705,3 +751,27 @@ The main guide covers:
 * Best practices
 * Interview questions
 * End-to-end module implementation
+
+## Final Project Flow
+
+```text
+                    Root Module
+               project-ec2-module/
+                        |
+                        |
+                 module "ec2"
+                        |
+                        v
+                  Child Module
+                   modules/ec2/
+                        |
+                        v
+                aws_instance.this
+                        |
+                        v
+                    AWS EC2
+```
+
+The key concept demonstrated by this project is:
+
+> The root module provides the configuration and inputs, while the child module encapsulates the reusable infrastructure implementation and exposes outputs back to the root module.
