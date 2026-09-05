@@ -1,147 +1,120 @@
 
 ## Terraform State, Remote Backend, and State Locking
 
-**File:** 📄 `01-terraform-state.md`
+> **File:** `01-terraform-state.md`
 
 ## Table of Contents
 
-- [1. Learning Objectives](#1-learning-objectives)
-- [2. What Is Terraform State?](#2-what-is-terraform-state)
-- [3. Why Does Terraform Need State?](#3-why-does-terraform-need-state)
-- [4. Terraform State as Terraform's Memory](#4-terraform-state-as-terraforms-memory)
-- [5. What Happens Without State?](#5-what-happens-without-state)
-- [6. Terraform State During the Terraform Lifecycle](#6-terraform-state-during-the-terraform-lifecycle)
-  - [6.1 `terraform plan`](#61-terraform-plan)
-  - [6.2 `terraform apply`](#62-terraform-apply)
-  - [6.3 `terraform destroy`](#63-terraform-destroy)
-- [7. What Does Terraform State Contain?](#7-what-does-terraform-state-contain)
-- [8. Advantages of Terraform State](#8-advantages-of-terraform-state)
-  - [8.1 Resource Tracking](#81-resource-tracking)
-  - [8.2 Change Detection](#82-change-detection)
-  - [8.3 Resource Metadata](#83-resource-metadata)
-  - [8.4 Supporting Resource Updates](#84-supporting-resource-updates)
-  - [8.5 Supporting Resource Destruction](#85-supporting-resource-destruction)
-- [9. Terraform State Is Sensitive](#9-terraform-state-is-sensitive)
-- [10. Why Should Terraform State Not Be Stored in Git?](#10-why-should-terraform-state-not-be-stored-in-git)
-- [11. Security Risk of Committing State](#11-security-risk-of-committing-state)
-- [12. State Synchronization Problem](#12-state-synchronization-problem)
-- [13. Recommended `.gitignore`](#13-recommended-gitignore)
-- [14. What Is a Terraform Backend?](#14-what-is-a-terraform-backend)
-- [15. Local Backend](#15-local-backend)
-- [16. Remote Backend](#16-remote-backend)
-- [17. Amazon S3 as a Terraform Backend](#17-amazon-s3-as-a-terraform-backend)
-- [18. Why Use Amazon S3?](#18-why-use-amazon-s3)
-- [19. Understanding the S3 `key`](#19-understanding-the-s3-key)
-- [20. S3 Bucket Versioning](#20-s3-bucket-versioning)
-- [21. State Encryption](#21-state-encryption)
-- [22. State Locking](#22-state-locking)
-- [23. How State Locking Works](#23-how-state-locking-works)
-- [24. Native S3 State Locking](#24-native-s3-state-locking)
-- [25. Historical DynamoDB State Locking](#25-historical-dynamodb-state-locking)
-- [26. Current Status of DynamoDB Locking](#26-current-status-of-dynamodb-locking)
-- [27. Why Learn DynamoDB Locking?](#27-why-learn-dynamodb-locking)
-- [28. S3 Native Locking vs. DynamoDB Locking](#28-s3-native-locking-vs-dynamodb-locking)
-- [29. Important Distinction: State vs. Backend vs. Locking](#29-important-distinction-state-vs-backend-vs-locking)
-- [30. Important Clarification: State Locking Does Not Lock AWS Resources](#30-important-clarification-state-locking-does-not-lock-aws-resources)
-- [31. Important Clarification: Remote Backend Does Not Mean "No Local Data"](#31-important-clarification-remote-backend-does-not-mean-no-local-data)
-- [32. Backend Bootstrap Problem](#32-backend-bootstrap-problem)
-- [33. Recommended Backend Bootstrap Architecture](#33-recommended-backend-bootstrap-architecture)
-- [34. Project Architecture](#34-project-architecture)
-- [35. File Responsibilities](#35-file-responsibilities)
-- [36. Tools and Technologies](#36-tools-and-technologies)
-- [37. Version and Compatibility](#37-version-and-compatibility)
-- [38. `versions.tf`](#38-versionstf)
-- [39. `main.tf`](#39-maintf)
-- [40. `variables.tf`](#40-variablestf)
-- [41. `terraform.tfvars.example`](#41-terraformtfvarsexample)
-- [42. `outputs.tf`](#42-outputstf)
-- [43. `backend.tf`](#43-backendtf)
-- [44. Lab Prerequisites](#44-lab-prerequisites)
-  - [AWS Account](#aws-account)
-  - [Terraform](#terraform)
-  - [AWS CLI](#aws-cli)
-  - [AWS Authentication](#aws-authentication)
-- [45. Optional Development Environment — GitHub Codespaces](#45-optional-development-environment--github-codespaces)
-- [46. Practical Lab — Initial Local State](#46-practical-lab--initial-local-state)
-- [47. Inspect Local State](#47-inspect-local-state)
-- [48. Understanding `terraform show`](#48-understanding-terraform-show)
-- [49. Inspect the Local Filesystem](#49-inspect-the-local-filesystem)
-- [50. Demonstrating State Loss](#50-demonstrating-state-loss)
-- [51. Create the S3 State Bucket](#51-create-the-s3-state-bucket)
-- [52. Backend Bootstrap Principle](#52-backend-bootstrap-principle)
-- [53. Configure the S3 Backend](#53-configure-the-s3-backend)
-- [54. Initialize the S3 Backend](#54-initialize-the-s3-backend)
-- [55. Backend Migration](#55-backend-migration)
-- [56. Verify the Remote Backend](#56-verify-the-remote-backend)
-- [57. Verify the S3 State Object](#57-verify-the-s3-state-object)
-- [58. Verify the S3 Lock Object](#58-verify-the-s3-lock-object)
-- [59. Validate State After Remote Configuration](#59-validate-state-after-remote-configuration)
-- [60. State Is Separate From Git](#60-state-is-separate-from-git)
-- [61. Verify Provider Lock File](#61-verify-provider-lock-file)
-- [62. Team Workflow](#62-team-workflow)
-- [63. Recommended CI/CD Workflow](#63-recommended-cicd-workflow)
-- [64. Backend Security Best Practices](#64-backend-security-best-practices)
-  - [64.1 Private S3 Bucket](#641-private-s3-bucket)
-  - [64.2 IAM Access Control](#642-iam-access-control)
-  - [64.3 Encryption](#643-encryption)
-  - [64.4 Bucket Versioning](#644-bucket-versioning)
-  - [64.5 Audit Logging](#645-audit-logging)
-  - [64.6 Least Privilege](#646-least-privilege)
-- [65. Remote State Does Not Automatically Mean Secure State](#65-remote-state-does-not-automatically-mean-secure-state)
-- [66. AWS Credentials Best Practices](#66-aws-credentials-best-practices)
-- [67. Backend Credentials vs. Provider Credentials](#67-backend-credentials-vs-provider-credentials)
-- [68. Useful Terraform State Commands](#68-useful-terraform-state-commands)
-  - [68.1 List Resources](#681-list-resources)
-  - [68.2 Show Complete State](#682-show-complete-state)
-  - [68.3 Show a Specific Resource](#683-show-a-specific-resource)
-  - [68.4 Pull Current State](#684-pull-current-state)
-  - [68.5 Remove a Resource From State](#685-remove-a-resource-from-state)
-- [69. State Locking and `-lock=false`](#69-state-locking-and--lockfalse)
-- [70. Force Unlock](#70-force-unlock)
-- [71. Common Troubleshooting](#71-common-troubleshooting)
-  - [71.1 Backend Bucket Does Not Exist](#711-backend-bucket-does-not-exist)
-    - [Cause](#cause)
-    - [Verify](#verify)
-  - [72. Access Denied](#72-access-denied)
-  - [73. Incorrect AWS Region](#73-incorrect-aws-region)
-  - [74. Backend Configuration Changed](#74-backend-configuration-changed)
-  - [75. State Lock Error](#75-state-lock-error)
-  - [76. Backend Initialization Problems](#76-backend-initialization-problems)
-  - [77. State Recovery Questions](#77-state-recovery-questions)
-- [78. Local Backend vs. S3 Remote Backend](#78-local-backend-vs-s3-remote-backend)
-- [79. State vs. Backend vs. Locking — Quick Comparison](#79-state-vs-backend-vs-locking--quick-comparison)
-- [80. Production State Architecture](#80-production-state-architecture)
-- [81. Separate State by Environment](#81-separate-state-by-environment)
-- [82. Separate State by Component](#82-separate-state-by-component)
-- [83. Practical Team Scenario](#83-practical-team-scenario)
-- [84. Lab Validation Checklist](#84-lab-validation-checklist)
-- [85. Production Best Practices](#85-production-best-practices)
-  - [85.1 Keep State Out of Git](#851-keep-state-out-of-git)
-  - [85.2 Use Remote State for Shared Infrastructure](#852-use-remote-state-for-shared-infrastructure)
-  - [85.3 Enable State Locking](#853-enable-state-locking)
-  - [85.4 Secure the S3 Bucket](#854-secure-the-s3-bucket)
-  - [85.5 Use Least Privilege](#855-use-least-privilege)
-  - [85.6 Protect Credentials](#856-protect-credentials)
-  - [85.7 Commit `.terraform.lock.hcl`](#857-commit-terraformlockhcl)
-  - [85.8 Use Separate State Boundaries](#858-use-separate-state-boundaries)
-  - [85.9 Do Not Disable Locking Routinely](#859-do-not-disable-locking-routinely)
-  - [85.10 Treat State Operations as High-Risk Operations](#8510-treat-state-operations-as-high-risk-operations)
-- [86. Current vs. Legacy Approaches](#86-current-vs-legacy-approaches)
-  - [Legacy S3 locking](#legacy-s3-locking)
-  - [Current S3 locking](#current-s3-locking)
-- [87. Interview Explanation](#87-interview-explanation)
-- [88. Interview Questions and Answers](#88-interview-questions-and-answers)
-- [89. Scenario-Based Interview Questions](#89-scenario-based-interview-questions)
-- [90. Lab Cleanup](#90-lab-cleanup)
-- [91. Verify Terraform Resources Were Destroyed](#91-verify-terraform-resources-were-destroyed)
-- [92. Remove the Lab State](#92-remove-the-lab-state)
-- [93. Remove the Lab S3 Bucket](#93-remove-the-lab-s3-bucket)
-- [94. Backend Decommissioning Checklist](#94-backend-decommissioning-checklist)
-- [95. GitHub Repository Expectations](#95-github-repository-expectations)
-- [96. Final Mental Model](#96-final-mental-model)
-- [97. Core Takeaways](#97-core-takeaways)
-- [98. Section Completion Checklist](#98-section-completion-checklist)
-- [99. Summary](#99-summary)
+* [1. Overview](#1-overview)
+* [2. Learning Objectives](#2-learning-objectives)
+* [3. What Is Terraform State?](#3-what-is-terraform-state)
+* [4. Why Does Terraform Need State?](#4-why-does-terraform-need-state)
+* [5. Terraform State as Terraform's Memory](#5-terraform-state-as-terraforms-memory)
+* [6. What Happens Without State?](#6-what-happens-without-state)
+* [7. Terraform State During the Terraform Lifecycle](#7-terraform-state-during-the-terraform-lifecycle)
+  * [7.1 `terraform plan`](#71-terraform-plan)
+  * [7.2 `terraform apply`](#72-terraform-apply)
+  * [7.3 `terraform destroy`](#73-terraform-destroy)
+* [8. What Does Terraform State Contain?](#8-what-does-terraform-state-contain)
+* [9. Advantages of Terraform State](#9-advantages-of-terraform-state)
+  * [9.1 Resource Tracking](#91-resource-tracking)
+  * [9.2 Change Detection](#92-change-detection)
+  * [9.3 Resource Metadata](#93-resource-metadata)
+  * [9.4 Supporting Resource Updates](#94-supporting-resource-updates)
+  * [9.5 Supporting Resource Destruction](#95-supporting-resource-destruction)
+* [10. Terraform State Is Sensitive](#10-terraform-state-is-sensitive)
+* [11. Why Should Terraform State Not Be Stored in Git?](#11-why-should-terraform-state-not-be-stored-in-git)
+* [12. Security Risk of Committing State](#12-security-risk-of-committing-state)
+* [13. State Synchronization Problem](#13-state-synchronization-problem)
+* [14. Recommended `.gitignore`](#14-recommended-gitignore)
+* [15. What Is a Terraform Backend?](#15-what-is-a-terraform-backend)
+* [16. Local Backend](#16-local-backend)
+* [17. Remote Backend](#17-remote-backend)
+* [18. Amazon S3 as a Terraform Backend](#18-amazon-s3-as-a-terraform-backend)
+* [19. Why Use Amazon S3?](#19-why-use-amazon-s3)
+* [20. Understanding the S3 `key`](#20-understanding-the-s3-key)
+* [21. S3 Bucket Versioning](#21-s3-bucket-versioning)
+* [22. State Encryption](#22-state-encryption)
+* [23. State Locking](#23-state-locking)
+* [24. How State Locking Works](#24-how-state-locking-works)
+* [25. Native S3 State Locking](#25-native-s3-state-locking)
+* [26. Historical DynamoDB State Locking](#26-historical-dynamodb-state-locking)
+* [27. Current Status of DynamoDB Locking](#27-current-status-of-dynamodb-locking)
+* [28. Why Learn DynamoDB Locking?](#28-why-learn-dynamodb-locking)
+* [29. S3 Native Locking vs. DynamoDB Locking](#29-s3-native-locking-vs-dynamodb-locking)
+* [30. Important Distinction: State vs. Backend vs. Locking](#30-important-distinction-state-vs-backend-vs-locking)
+* [31. Important Clarification: State Locking Does Not Lock AWS Resources](#31-important-clarification-state-locking-does-not-lock-aws-resources)
+* [32. Important Clarification: Remote Backend Does Not Mean "No Local Data"](#32-important-clarification-remote-backend-does-not-mean-no-local-data)
+* [33. Backend Bootstrap Problem](#33-backend-bootstrap-problem)
+* [34. Recommended Backend Bootstrap Architecture](#34-recommended-backend-bootstrap-architecture)
+* [35. Project Architecture](#35-project-architecture)
+* [36. File Responsibilities](#36-file-responsibilities)
+* [37. Tools and Technologies](#37-tools-and-technologies)
+* [38. Version and Compatibility](#38-version-and-compatibility)
+* [39. `versions.tf`](#39-versionstf)
+* [40. `main.tf`](#40-maintf)
+* [41. `variables.tf`](#41-variablestf)
+* [42. `terraform.tfvars.example`](#42-terraformtfvarsexample)
+* [43. `outputs.tf`](#43-outputstf)
+* [44. `backend.tf`](#44-backendtf)
+* [45. Lab Prerequisites](#45-lab-prerequisites)
+* [46. Optional Development Environment — GitHub Codespaces](#46-optional-development-environment--github-codespaces)
+* [47. Practical Lab — Initial Local State](#47-practical-lab--initial-local-state)
+* [48. Inspect Local State](#48-inspect-local-state)
+* [49. Understanding `terraform show`](#49-understanding-terraform-show)
+* [50. Inspect the Local Filesystem](#50-inspect-the-local-filesystem)
+* [51. Demonstrating State Loss](#51-demonstrating-state-loss)
+* [52. Create the S3 State Bucket](#52-create-the-s3-state-bucket)
+* [53. Backend Bootstrap Principle](#53-backend-bootstrap-principle)
+* [54. Configure the S3 Backend](#54-configure-the-s3-backend)
+* [55. Initialize the S3 Backend](#55-initialize-the-s3-backend)
+* [56. Backend Migration](#56-backend-migration)
+* [57. Verify the Remote Backend](#57-verify-the-remote-backend)
+* [58. Verify the S3 State Object](#58-verify-the-s3-state-object)
+* [59. Verify the S3 Lock Object](#59-verify-the-s3-lock-object)
+* [60. Validate State After Remote Configuration](#60-validate-state-after-remote-configuration)
+* [61. State Is Separate From Git](#61-state-is-separate-from-git)
+* [62. Verify Provider Lock File](#62-verify-provider-lock-file)
+* [63. Team Workflow](#63-team-workflow)
+* [64. Recommended CI/CD Workflow](#64-recommended-cicd-workflow)
+* [65. Backend Security Best Practices](#65-backend-security-best-practices)
+* [66. Remote State Does Not Automatically Mean Secure State](#66-remote-state-does-not-automatically-mean-secure-state)
+* [67. AWS Credentials Best Practices](#67-aws-credentials-best-practices)
+* [68. Backend Credentials vs. Provider Credentials](#68-backend-credentials-vs-provider-credentials)
+* [69. Useful Terraform State Commands](#69-useful-terraform-state-commands)
+* [70. State Locking and `-lock=false`](#70-state-locking-and--lockfalse)
+* [71. Force Unlock](#71-force-unlock)
+* [72. Common Troubleshooting](#72-common-troubleshooting)
+* [73. Access Denied](#73-access-denied)
+* [74. Incorrect AWS Region](#74-incorrect-aws-region)
+* [75. Backend Configuration Changed](#75-backend-configuration-changed)
+* [76. State Lock Error](#76-state-lock-error)
+* [77. Backend Initialization Problems](#77-backend-initialization-problems)
+* [78. State Recovery Questions](#78-state-recovery-questions)
+* [79. Local Backend vs. S3 Remote Backend](#79-local-backend-vs-s3-remote-backend)
+* [80. State vs. Backend vs. Locking — Quick Comparison](#80-state-vs-backend-vs-locking--quick-comparison)
+* [81. Production State Architecture](#81-production-state-architecture)
+* [82. Separate State by Environment](#82-separate-state-by-environment)
+* [83. Separate State by Component](#83-separate-state-by-component)
+* [84. Practical Team Scenario](#84-practical-team-scenario)
+* [85. Lab Validation Checklist](#85-lab-validation-checklist)
+* [86. Production Best Practices](#86-production-best-practices)
+* [87. Current vs. Legacy Approaches](#87-current-vs-legacy-approaches)
+* [88. Interview Explanation](#88-interview-explanation)
+* [89. Interview Questions and Answers](#89-interview-questions-and-answers)
+* [90. Scenario-Based Interview Questions](#90-scenario-based-interview-questions)
+* [91. Lab Cleanup](#91-lab-cleanup)
+* [92. Verify Terraform Resources Were Destroyed](#92-verify-terraform-resources-were-destroyed)
+* [93. Remove the Lab State](#93-remove-the-lab-state)
+* [94. Remove the Lab S3 Bucket](#94-remove-the-lab-s3-bucket)
+* [95. Backend Decommissioning Checklist](#95-backend-decommissioning-checklist)
+* [96. GitHub Repository Expectations](#96-github-repository-expectations)
+* [97. Final Mental Model](#97-final-mental-model)
+* [98. Core Takeaways](#98-core-takeaways)
+* [99. Section Completion Checklist](#99-section-completion-checklist)
+* [100. Summary](#100-summary)
+
+## 1. Overview
 
 Terraform State is one of the most important concepts in Terraform. It is fundamental to understanding how Terraform tracks managed infrastructure, determines changes, updates resources, and safely destroys infrastructure.
 
@@ -162,7 +135,7 @@ This section moves from the fundamentals of Terraform State to a practical AWS i
 
 > **Current Terraform note:** Native S3 State locking using `use_lockfile = true` is the preferred approach for new S3 backend configurations. DynamoDB-based S3 State locking is a legacy/deprecated approach and is included here primarily for historical knowledge, existing-environment support, and interviews.
 
-## 1. Learning Objectives
+## 2. Learning Objectives
 
 By the end of this section, we will understand:
 
@@ -192,7 +165,7 @@ By the end of this section, we will understand:
 * How to safely clean up the lab
 * How to explain Terraform State in interviews
 
-## 2. What Is Terraform State?
+## 3. What Is Terraform State?
 
 Terraform State is Terraform's persistent record of the infrastructure it manages.
 
@@ -204,7 +177,7 @@ terraform.tfstate
 
 Terraform State maintains the relationship between Terraform resource instances and real infrastructure objects.
 
-For example, consider:
+For example:
 
 ```hcl
 resource "aws_instance" "demo" {
@@ -254,7 +227,9 @@ i-0123456789abcdef0
 
 represents the same infrastructure object.
 
-## 3. Why Does Terraform Need State?
+> **Important:** Terraform State should not be described simply as a "cache of infrastructure." Its primary purpose is to maintain the binding between Terraform resource instances and objects in remote systems, along with the metadata Terraform needs to manage those resources.
+
+## 4. Why Does Terraform Need State?
 
 Terraform is declarative.
 
@@ -315,9 +290,7 @@ Required Changes
 
 This resource-to-object relationship is one of the fundamental reasons Terraform maintains State.
 
-> **Important:** Terraform State should not be described simply as a "cache of infrastructure." Its primary purpose is to maintain the binding between Terraform resource instances and objects in remote systems, along with the metadata Terraform needs to manage those resources.
-
-## 4. Terraform State as Terraform's Memory
+## 5. Terraform State as Terraform's Memory
 
 A useful analogy is to think of Terraform State as Terraform's **memory**.
 
@@ -346,14 +319,14 @@ State provides that relationship.
           +----------+----------+
           |                     |
           v                     v
- Terraform State        Real Infrastructure
+   Terraform State     Real Infrastructure
           |                     |
           +------ relationship -+
 ```
 
 Without this persistent record, Terraform would have difficulty reliably identifying which existing infrastructure object corresponds to each Terraform resource instance.
 
-## 5. What Happens Without State?
+## 6. What Happens Without State?
 
 Suppose Terraform previously created:
 
@@ -398,15 +371,15 @@ Conceptually:
 
 ```text
 Terraform Configuration
-        |
-        v
-     Terraform
-        |
-        | State mapping missing
-        v
+          |
+          v
+      Terraform
+          |
+          | State mapping missing
+          v
 "Resource is not tracked"
-        |
-        v
+          |
+          v
 Potential create operation
 ```
 
@@ -414,7 +387,7 @@ This is why deleting State is a serious operation.
 
 > **Warning:** Never casually delete or modify production Terraform State.
 
-## 6. Terraform State During the Terraform Lifecycle
+## 7. Terraform State During the Terraform Lifecycle
 
 Terraform State participates in the major Terraform workflows:
 
@@ -426,7 +399,7 @@ terraform destroy
 
 Each operation uses State differently.
 
-### 6.1 `terraform plan`
+### 7.1 `terraform plan`
 
 When we execute:
 
@@ -442,22 +415,22 @@ Conceptually:
 Terraform Configuration
           |
           v
-       Terraform
-       /       \
-      v         v
-   State    Infrastructure
-      \         /
-       \       /
-        v     v
-       Difference
-           |
-           v
+      Terraform
+      /       \
+     v         v
+   State  Infrastructure
+     \         /
+      \       /
+       v     v
+      Difference
+          |
+          v
     Proposed Plan
 ```
 
 Terraform uses this information to generate the proposed execution plan.
 
-### 6.2 `terraform apply`
+### 7.2 `terraform apply`
 
 When we execute:
 
@@ -493,7 +466,7 @@ Update State
 
 After successful execution, Terraform updates State to represent the resulting infrastructure.
 
-### 6.3 `terraform destroy`
+### 7.3 `terraform destroy`
 
 When we execute:
 
@@ -526,7 +499,7 @@ State Updated
 
 State therefore plays an important role in safely managing resource destruction.
 
-## 7. What Does Terraform State Contain?
+## 8. What Does Terraform State Contain?
 
 Terraform State is stored as JSON data.
 
@@ -563,11 +536,11 @@ aws_instance.demo
 
 The exact State structure is provider- and resource-dependent.
 
-## 8. Advantages of Terraform State
+## 9. Advantages of Terraform State
 
 Terraform State provides several important capabilities.
 
-### 8.1 Resource Tracking
+### 9.1 Resource Tracking
 
 State tracks resources managed by Terraform.
 
@@ -584,7 +557,7 @@ Terraform State
 
 Terraform uses this information when managing those resources.
 
-### 8.2 Change Detection
+### 9.2 Change Detection
 
 State contributes to Terraform's ability to determine what changes are required.
 
@@ -607,7 +580,7 @@ Terraform Plan
 ~ update Environment from dev to prod
 ```
 
-### 8.3 Resource Metadata
+### 9.3 Resource Metadata
 
 State contains metadata Terraform needs to manage resources.
 
@@ -619,7 +592,7 @@ This can include:
 * Resource attributes
 * Relationships
 
-### 8.4 Supporting Resource Updates
+### 9.4 Supporting Resource Updates
 
 Suppose State identifies:
 
@@ -634,7 +607,7 @@ and the configuration changes only a tag.
 
 Terraform can use the existing mapping to determine that the existing EC2 instance should be updated instead of treating it as an entirely new resource.
 
-### 8.5 Supporting Resource Destruction
+### 9.5 Supporting Resource Destruction
 
 State also allows Terraform to determine which resources are currently managed by the configuration.
 
@@ -644,7 +617,7 @@ This information is important during:
 terraform destroy
 ```
 
-## 9. Terraform State Is Sensitive
+## 10. Terraform State Is Sensitive
 
 Terraform State should be treated as sensitive infrastructure data.
 
@@ -685,7 +658,7 @@ terraform.tfstate
 
 We should protect Terraform State with the same seriousness applied to other sensitive infrastructure data.
 
-## 10. Why Should Terraform State Not Be Stored in Git?
+## 11. Why Should Terraform State Not Be Stored in Git?
 
 A common beginner approach is:
 
@@ -707,7 +680,7 @@ There are two major concerns:
 1. Security
 2. State synchronization and concurrency
 
-## 11. Security Risk of Committing State
+## 12. Security Risk of Committing State
 
 Terraform State can contain sensitive information.
 
@@ -733,7 +706,7 @@ to Git, anyone with sufficient repository access may potentially inspect informa
 
 Even a private Git repository should not be treated as a secure Terraform State backend.
 
-## 12. State Synchronization Problem
+## 13. State Synchronization Problem
 
 Consider a team of five engineers:
 
@@ -776,7 +749,7 @@ This creates unnecessary complexity and increases the risk of State conflicts an
 
 More importantly, Git is not a Terraform State backend and does not provide the State locking semantics required to safely coordinate concurrent Terraform operations.
 
-## 13. Recommended `.gitignore`
+## 14. Recommended `.gitignore`
 
 A Terraform repository should normally exclude Terraform-generated State and working-directory files.
 
@@ -811,7 +784,7 @@ crash.*.log
 
 The exact `.gitignore` should be adapted to the project's requirements.
 
-## 14. What Is a Terraform Backend?
+## 15. What Is a Terraform Backend?
 
 A Terraform **backend** determines where Terraform stores and accesses State.
 
@@ -850,7 +823,7 @@ The appropriate backend depends on:
 * CI/CD architecture
 * Operational requirements
 
-## 15. Local Backend
+## 16. Local Backend
 
 The local backend stores State on the local filesystem.
 
@@ -878,7 +851,7 @@ This is convenient for:
 
 However, it becomes less suitable for shared team infrastructure.
 
-## 16. Remote Backend
+## 17. Remote Backend
 
 A remote backend stores State in a centralized remote location.
 
@@ -913,29 +886,28 @@ Benefits include:
 * State locking support where supported
 * Better operational consistency
 
-## 17. Amazon S3 as a Terraform Backend
+## 18. Amazon S3 as a Terraform Backend
 
 For AWS-based Terraform projects, Amazon S3 is a common remote backend.
 
 The architecture is:
 
 ```text
-                 GitHub
-                   |
-                   | Terraform Source Code
-                   v
+                  GitHub
+                    |
+                    | Terraform Source Code
+                    v
             Terraform Project
-                   |
-                   | terraform init/apply
-                   v
-                  AWS
-                   |
-          +--------+--------+
-          |                 |
-          v                 v
+                    |
+                    | terraform init/apply
+                    v
+                   AWS
+           +--------+--------+
+           |                 |
+           v                 v
       S3 Backend       AWS Resources
-          |
-          v
+           |
+           v
    terraform.tfstate
 ```
 
@@ -953,7 +925,7 @@ AWS S3
 
 Terraform source code and Terraform State therefore have different responsibilities.
 
-## 18. Why Use Amazon S3?
+## 19. Why Use Amazon S3?
 
 S3 provides centralized State storage that can be integrated with AWS security and operational controls.
 
@@ -973,7 +945,7 @@ bucket = "..."
 key    = "..."
 ```
 
-## 19. Understanding the S3 `key`
+## 20. Understanding the S3 `key`
 
 The `key` identifies the object path used to store Terraform State inside the S3 bucket.
 
@@ -1004,7 +976,9 @@ key
 Terraform State Object
 ```
 
-## 20. S3 Bucket Versioning
+The `key` is therefore useful for organizing multiple State files within a bucket.
+
+## 21. S3 Bucket Versioning
 
 For production Terraform State, S3 Bucket Versioning is strongly recommended.
 
@@ -1030,7 +1004,7 @@ This provides an additional recovery mechanism for:
 
 > **Important:** Versioning is a recovery mechanism, not a replacement for proper State management, backups, change control, or access controls.
 
-## 21. State Encryption
+## 22. State Encryption
 
 The S3 backend configuration can include:
 
@@ -1057,7 +1031,7 @@ S3
 
 Organizations with stronger encryption requirements may additionally use AWS KMS.
 
-## 22. State Locking
+## 23. State Locking
 
 Remote State solves the problem of centralized State storage.
 
@@ -1085,7 +1059,7 @@ Multiple simultaneous State-changing operations can cause race conditions and co
 
 **State locking** prevents multiple Terraform operations from simultaneously acquiring the same State lock.
 
-## 23. How State Locking Works
+## 24. How State Locking Works
 
 Conceptually:
 
@@ -1145,9 +1119,9 @@ Continue Operation
 
 The fundamental principle is:
 
-> **Only one Terraform State-changing operation should modify a particular State at a time.**
+> Only one Terraform State-changing operation should modify a particular State at a time.
 
-## 24. Native S3 State Locking
+## 25. Native S3 State Locking
 
 Current Terraform S3 backend configurations can use native S3 State locking.
 
@@ -1188,7 +1162,7 @@ The `.tflock` object represents the State lock.
 
 For new S3 backend configurations, this is the preferred approach.
 
-## 25. Historical DynamoDB State Locking
+## 26. Historical DynamoDB State Locking
 
 Older Terraform S3 backend configurations commonly used DynamoDB for State locking.
 
@@ -1224,7 +1198,7 @@ aws dynamodb create-table \
   --billing-mode PAY_PER_REQUEST
 ```
 
-## 26. Current Status of DynamoDB Locking
+## 27. Current Status of DynamoDB Locking
 
 DynamoDB-based S3 State locking is now a **legacy/deprecated approach for new configurations**.
 
@@ -1255,7 +1229,7 @@ Native S3 Locking
 
 > **Important:** Existing production environments using DynamoDB locking should not be changed blindly. Migration should be planned, tested, and performed deliberately.
 
-## 27. Why Learn DynamoDB Locking?
+## 28. Why Learn DynamoDB Locking?
 
 Even though DynamoDB locking is a legacy approach for new configurations, it remains valuable knowledge.
 
@@ -1276,7 +1250,7 @@ dynamodb_table = "terraform-lock"
 
 Recognizing this configuration is important when working with existing infrastructure.
 
-## 28. S3 Native Locking vs. DynamoDB Locking
+## 29. S3 Native Locking vs. DynamoDB Locking
 
 | Feature                   | S3 Native Locking           | DynamoDB Locking                              |
 | ------------------------- | --------------------------- | --------------------------------------------- |
@@ -1298,7 +1272,7 @@ S3 Native Locking
 use_lockfile = true
 ```
 
-## 29. Important Distinction: State vs. Backend vs. Locking
+## 30. Important Distinction: State vs. Backend vs. Locking
 
 These concepts are related but are not the same.
 
@@ -1335,7 +1309,7 @@ S3 Backend
       +── terraform.tfstate.tflock
 ```
 
-## 30. Important Clarification: State Locking Does Not Lock AWS Resources
+## 31. Important Clarification: State Locking Does Not Lock AWS Resources
 
 State locking does not permanently lock an EC2 instance, VPC, subnet, or other AWS resource.
 
@@ -1359,7 +1333,7 @@ Locks AWS EC2 Resource
 
 These are different concepts.
 
-## 31. Important Clarification: Remote Backend Does Not Mean "No Local Data"
+## 32. Important Clarification: Remote Backend Does Not Mean "No Local Data"
 
 It is common to say:
 
@@ -1373,7 +1347,7 @@ However, Terraform may retain local data required for operation, and in certain 
 
 The accurate mental model is:
 
-> **With a remote backend, Terraform's authoritative persistent State is stored remotely rather than as the normal persistent `terraform.tfstate` file in the project directory.**
+> With a remote backend, Terraform's authoritative persistent State is stored remotely rather than as the normal persistent `terraform.tfstate` file in the project directory.
 
 Therefore:
 
@@ -1393,7 +1367,7 @@ AWS S3
 └── terraform.tfstate
 ```
 
-## 32. Backend Bootstrap Problem
+## 33. Backend Bootstrap Problem
 
 There is an important architectural issue when using S3 as a backend.
 
@@ -1428,7 +1402,7 @@ Application Terraform
 Uses Existing S3 Backend
 ```
 
-## 33. Recommended Backend Bootstrap Architecture
+## 34. Recommended Backend Bootstrap Architecture
 
 A professional implementation can separate backend infrastructure from application infrastructure.
 
@@ -1465,7 +1439,7 @@ Using the backend
 
 For a learning lab, the S3 bucket may be created manually or through a temporary bootstrap configuration.
 
-## 34. Project Architecture
+## 35. Project Architecture
 
 The practical project associated with this section is:
 
@@ -1492,7 +1466,7 @@ The `.terraform/` directory should not be committed.
 
 The `.terraform.lock.hcl` file should generally be committed.
 
-## 35. File Responsibilities
+## 36. File Responsibilities
 
 | File                       | Responsibility                                   |
 | -------------------------- | ------------------------------------------------ |
@@ -1504,7 +1478,7 @@ The `.terraform.lock.hcl` file should generally be committed.
 | `outputs.tf`               | Useful Terraform outputs                         |
 | `backend.tf`               | S3 remote backend configuration                  |
 
-## 36. Tools and Technologies
+## 37. Tools and Technologies
 
 This lab uses:
 
@@ -1521,7 +1495,7 @@ This lab uses:
 | GitHub              | Source-code collaboration              |
 | GitHub Codespaces   | Optional cloud development environment |
 
-## 37. Version and Compatibility
+## 38. Version and Compatibility
 
 The project uses the following Terraform requirements:
 
@@ -1565,43 +1539,36 @@ Terraform should also generate:
 
 This provider dependency lock file should generally be committed to Git to improve provider version reproducibility.
 
-## 38. `versions.tf`
+## 39. `versions.tf`
 
 Our `versions.tf` contains:
 
 ```hcl
 terraform {
-  # Record the Terraform version range supported by this project.
   required_version = ">= 1.15.0"
 
   required_providers {
     aws = {
-      source = "hashicorp/aws"
-
-      # Use a compatible AWS provider version.
+      source  = "hashicorp/aws"
       version = "~> 6.0"
     }
   }
 }
 
 provider "aws" {
-  # Use the AWS region supplied through the input variable.
   region = var.aws_region
 }
 ```
 
 This explicitly declares the Terraform and AWS provider requirements.
 
-## 39. `main.tf`
+## 40. `main.tf`
 
 Our demonstration uses an EC2 instance:
 
 ```hcl
 resource "aws_instance" "demo" {
-  # AMI used for the demonstration instance.
-  ami = var.ami_id
-
-  # Instance type used by the lab.
+  ami           = var.ami_id
   instance_type = var.instance_type
 
   tags = {
@@ -1613,7 +1580,7 @@ resource "aws_instance" "demo" {
 
 Terraform manages this resource and records its information in State.
 
-## 40. `variables.tf`
+## 41. `variables.tf`
 
 The project uses input variables:
 
@@ -1649,11 +1616,11 @@ variable "ami_id" {
 variable "instance_type" {
   description = "EC2 instance type."
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 ```
 
-## 41. `terraform.tfvars.example`
+## 42. `terraform.tfvars.example`
 
 The project provides a shareable template:
 
@@ -1697,7 +1664,7 @@ must contain a valid AMI ID for the selected AWS region.
 
 > **Important:** The finalized project uses `project_name`. We should not introduce an `instance_name` variable unless it is explicitly declared and used by the Terraform configuration.
 
-## 42. `outputs.tf`
+## 43. `outputs.tf`
 
 Outputs provide a controlled way to expose useful Terraform values.
 
@@ -1707,6 +1674,21 @@ Example:
 output "instance_id" {
   description = "ID of the EC2 instance created by Terraform."
   value       = aws_instance.demo.id
+}
+
+output "instance_public_ip" {
+  description = "Public IP address of the EC2 instance."
+  value       = aws_instance.demo.public_ip
+}
+
+output "instance_private_ip" {
+  description = "Private IP address of the EC2 instance."
+  value       = aws_instance.demo.private_ip
+}
+
+output "instance_name" {
+  description = "Name of the EC2 instance."
+  value       = aws_instance.demo.tags["Name"]
 }
 ```
 
@@ -1738,7 +1720,7 @@ Terraform Output
 
 Outputs should not be considered a replacement for securing Terraform State.
 
-## 43. `backend.tf`
+## 44. `backend.tf`
 
 Our S3 backend configuration is:
 
@@ -1771,7 +1753,7 @@ REPLACE-WITH-YOUR-UNIQUE-STATE-BUCKET
 
 with the actual S3 bucket name.
 
-## 44. Lab Prerequisites
+## 45. Lab Prerequisites
 
 Before starting the practical lab, ensure that we have:
 
@@ -1815,7 +1797,7 @@ aws sts get-caller-identity
 
 A successful response confirms that the AWS CLI is authenticated.
 
-## 45. Optional Development Environment — GitHub Codespaces
+## 46. Optional Development Environment — GitHub Codespaces
 
 The lab can be performed from:
 
@@ -1845,7 +1827,7 @@ GitHub Codespaces
 
 The Terraform project itself remains environment-independent.
 
-## 46. Practical Lab — Initial Local State
+## 47. Practical Lab — Initial Local State
 
 The first part of the lab demonstrates the default local backend.
 
@@ -1903,7 +1885,7 @@ Terraform State
 terraform.tfstate
 ```
 
-## 47. Inspect Local State
+## 48. Inspect Local State
 
 Run:
 
@@ -1927,7 +1909,7 @@ terraform show
 
 This displays the current State in a human-readable representation.
 
-## 48. Understanding `terraform show`
+## 49. Understanding `terraform show`
 
 Instead of manually opening the JSON State file, use:
 
@@ -1950,7 +1932,7 @@ resource "aws_instance" "demo" {
 
 The exact attributes will depend on the provider and resource.
 
-## 49. Inspect the Local Filesystem
+## 50. Inspect the Local Filesystem
 
 Linux / macOS / Codespaces:
 
@@ -1972,7 +1954,7 @@ terraform.tfstate
 
 when using the local backend.
 
-## 50. Demonstrating State Loss
+## 51. Demonstrating State Loss
 
 For learning purposes only, we can demonstrate the effect of losing local State.
 
@@ -2004,7 +1986,7 @@ The plan may propose creating the EC2 instance again.
 
 This demonstrates why State is critical to Terraform's resource management.
 
-## 51. Create the S3 State Bucket
+## 52. Create the S3 State Bucket
 
 The S3 bucket must exist before Terraform can normally use it as an S3 backend.
 
@@ -2027,7 +2009,7 @@ For production environments, the bucket should be configured with appropriate co
 * Appropriate audit controls
 * Appropriate lifecycle controls
 
-## 52. Backend Bootstrap Principle
+## 53. Backend Bootstrap Principle
 
 The S3 backend should generally be provisioned separately from the application Terraform project.
 
@@ -2048,26 +2030,21 @@ Remote State in S3
 
 This prevents the application Terraform configuration from depending on a backend resource that it is simultaneously trying to create.
 
-## 53. Configure the S3 Backend
+## 54. Configure the S3 Backend
 
 Once the S3 bucket exists, configure `backend.tf`:
 
 ```hcl
 terraform {
   backend "s3" {
-    # Existing S3 bucket used to store Terraform State.
     bucket = "terraform-state-demo-2026-xxxxx"
 
-    # S3 object path where Terraform State is stored.
     key = "terraform-state-demo/terraform.tfstate"
 
-    # AWS region containing the S3 bucket.
     region = "us-east-1"
 
-    # Enable native S3 State locking.
     use_lockfile = true
 
-    # Enable server-side encryption.
     encrypt = true
   }
 }
@@ -2075,7 +2052,7 @@ terraform {
 
 Replace the example bucket name with the actual bucket name.
 
-## 54. Initialize the S3 Backend
+## 55. Initialize the S3 Backend
 
 Run:
 
@@ -2110,7 +2087,7 @@ Initialize S3 Backend
 Remote State Available
 ```
 
-## 55. Backend Migration
+## 56. Backend Migration
 
 If an existing local State file exists when the S3 backend is configured, Terraform may detect that State needs to be migrated.
 
@@ -2136,7 +2113,7 @@ Use migration options deliberately and review the resulting Terraform output car
 
 > **Important:** Never delete the original State before confirming that the migration has completed successfully.
 
-## 56. Verify the Remote Backend
+## 57. Verify the Remote Backend
 
 After successful initialization, run:
 
@@ -2175,7 +2152,7 @@ Amazon S3
     └── terraform.tfstate
 ```
 
-## 57. Verify the S3 State Object
+## 58. Verify the S3 State Object
 
 Use the AWS CLI:
 
@@ -2195,7 +2172,7 @@ We should see the State object:
 terraform.tfstate
 ```
 
-## 58. Verify the S3 Lock Object
+## 59. Verify the S3 Lock Object
 
 With:
 
@@ -2218,7 +2195,7 @@ The lock file is used for State locking during Terraform operations.
 
 The lock object should not be manually deleted while a legitimate Terraform operation is running.
 
-## 59. Validate State After Remote Configuration
+## 60. Validate State After Remote Configuration
 
 Run:
 
@@ -2248,7 +2225,7 @@ terraform show
 
 should display the current Terraform State.
 
-## 60. State Is Separate From Git
+## 61. State Is Separate From Git
 
 After configuring the remote backend, the recommended architecture is:
 
@@ -2284,7 +2261,7 @@ Terraform State
 S3
 ```
 
-## 61. Verify Provider Lock File
+## 62. Verify Provider Lock File
 
 After:
 
@@ -2312,7 +2289,7 @@ terraform.tfstate
 terraform.tfstate.*
 ```
 
-## 62. Team Workflow
+## 63. Team Workflow
 
 A practical team workflow can look like:
 
@@ -2341,12 +2318,12 @@ A practical team workflow can look like:
               +---------+---------+
               |                   |
               v                   v
-       terraform.tfstate    .tflock
+      terraform.tfstate        .tflock
 ```
 
 The Terraform source code remains in Git, while the State is centralized in the S3 backend.
 
-## 63. Recommended CI/CD Workflow
+## 64. Recommended CI/CD Workflow
 
 In mature environments, Terraform execution is often handled by CI/CD instead of individual developer machines.
 
@@ -2377,17 +2354,17 @@ CI/CD
 
 State locking is especially important when multiple CI/CD pipelines or engineers could potentially operate against the same State.
 
-## 64. Backend Security Best Practices
+## 65. Backend Security Best Practices
 
 A production S3 backend should be protected using multiple security layers.
 
-### 64.1 Private S3 Bucket
+### Private S3 Bucket
 
 The Terraform State bucket should not be publicly accessible.
 
 Enable appropriate S3 Block Public Access controls.
 
-### 64.2 IAM Access Control
+### IAM Access Control
 
 Only authorized Terraform execution identities and operators should access State.
 
@@ -2411,7 +2388,7 @@ s3:DeleteObject
 
 The exact policy should be designed according to the organization's least-privilege requirements.
 
-### 64.3 Encryption
+### Encryption
 
 Use:
 
@@ -2421,7 +2398,7 @@ encrypt = true
 
 Organizations with stronger requirements may use AWS KMS-based encryption.
 
-### 64.4 Bucket Versioning
+### Bucket Versioning
 
 Enable S3 Bucket Versioning for State recovery.
 
@@ -2434,7 +2411,7 @@ State Object
     +── Current
 ```
 
-### 64.5 Audit Logging
+### Audit Logging
 
 Production environments should use appropriate AWS auditing and monitoring capabilities to track access to the State bucket.
 
@@ -2444,7 +2421,7 @@ Examples include:
 * S3 access logging where appropriate
 * AWS monitoring and security services
 
-### 64.6 Least Privilege
+### Least Privilege
 
 Terraform execution identities should receive only the permissions required to:
 
@@ -2453,7 +2430,7 @@ Terraform execution identities should receive only the permissions required to:
 
 Avoid granting unrestricted AWS permissions when narrower permissions are practical.
 
-## 65. Remote State Does Not Automatically Mean Secure State
+## 66. Remote State Does Not Automatically Mean Secure State
 
 Moving State from:
 
@@ -2485,7 +2462,7 @@ Secure Terraform State
 
 Remote State is therefore part of the overall infrastructure security architecture.
 
-## 66. AWS Credentials Best Practices
+## 67. AWS Credentials Best Practices
 
 Never hard-code AWS credentials in Terraform configuration.
 
@@ -2509,7 +2486,7 @@ Instead, use secure authentication mechanisms such as:
 
 For CI/CD environments, short-lived federated credentials such as OIDC are generally preferable to long-lived access keys.
 
-## 67. Backend Credentials vs. Provider Credentials
+## 68. Backend Credentials vs. Provider Credentials
 
 Terraform interacts with AWS in two important contexts:
 
@@ -2532,9 +2509,9 @@ The Terraform execution identity therefore needs appropriate permissions for:
 
 These permissions should follow the principle of least privilege.
 
-## 68. Useful Terraform State Commands
+## 69. Useful Terraform State Commands
 
-### 68.1 List Resources
+### 69.1 List Resources
 
 ```bash
 terraform state list
@@ -2546,19 +2523,19 @@ Example:
 aws_instance.demo
 ```
 
-### 68.2 Show Complete State
+### 69.2 Show Complete State
 
 ```bash
 terraform show
 ```
 
-### 68.3 Show a Specific Resource
+### 69.3 Show a Specific Resource
 
 ```bash
 terraform state show aws_instance.demo
 ```
 
-### 68.4 Pull Current State
+### 69.4 Pull Current State
 
 ```bash
 terraform state pull
@@ -2568,7 +2545,7 @@ This retrieves the current State from the configured backend.
 
 Use caution when handling the output because it may contain sensitive information.
 
-### 68.5 Remove a Resource From State
+### 69.5 Remove a Resource From State
 
 ```bash
 terraform state rm aws_instance.demo
@@ -2593,7 +2570,7 @@ Destroy AWS Resource
 
 This command should therefore be used carefully.
 
-## 69. State Locking and `-lock=false`
+## 70. State Locking and `-lock=false`
 
 Terraform supports disabling locking for commands that support the option.
 
@@ -2621,7 +2598,7 @@ as a routine workaround for State lock errors.
 
 Keep locking enabled whenever the backend supports it.
 
-## 70. Force Unlock
+## 71. Force Unlock
 
 Terraform provides:
 
@@ -2648,9 +2625,9 @@ If a legitimate Terraform operation is still running and we force-unlock it, mul
 
 > **Rule:** Never force-unlock simply because Terraform reports that a State is locked.
 
-## 71. Common Troubleshooting
+## 72. Common Troubleshooting
 
-### 71.1 Backend Bucket Does Not Exist
+### 72.1 Backend Bucket Does Not Exist
 
 Possible error:
 
@@ -2681,7 +2658,7 @@ Confirm:
 * AWS region
 * IAM permissions
 
-## 72. Access Denied
+## 73. Access Denied
 
 Possible error:
 
@@ -2705,7 +2682,7 @@ S3 State permissions
 Terraform resource permissions
 ```
 
-## 73. Incorrect AWS Region
+## 74. Incorrect AWS Region
 
 Ensure that:
 
@@ -2722,7 +2699,7 @@ aws s3api get-bucket-location \
   --bucket YOUR-BUCKET-NAME
 ```
 
-## 74. Backend Configuration Changed
+## 75. Backend Configuration Changed
 
 After changing:
 
@@ -2744,7 +2721,7 @@ If State migration is required, Terraform may prompt for confirmation.
 
 Review the migration carefully before proceeding.
 
-## 75. State Lock Error
+## 76. State Lock Error
 
 If Terraform reports that the State is locked:
 
@@ -2759,7 +2736,7 @@ If Terraform reports that the State is locked:
 
 Do not manually delete the lock object while another legitimate Terraform process is running.
 
-## 76. Backend Initialization Problems
+## 77. Backend Initialization Problems
 
 If Terraform reports that the backend needs initialization, run:
 
@@ -2790,7 +2767,7 @@ The appropriate option depends on whether we are:
 * Changing backend configuration
 * Reconfiguring an existing backend
 
-## 77. State Recovery Questions
+## 78. State Recovery Questions
 
 Before taking destructive State actions, answer:
 
@@ -2812,7 +2789,7 @@ Is this production infrastructure?
 
 For production environments, State recovery procedures should be documented and tested.
 
-## 78. Local Backend vs. S3 Remote Backend
+## 79. Local Backend vs. S3 Remote Backend
 
 | Feature                          | Local Backend             | S3 Remote Backend |
 | -------------------------------- | ------------------------- | ----------------- |
@@ -2826,7 +2803,7 @@ For production environments, State recovery procedures should be documented and 
 | Native S3 locking                | No                        | Yes               |
 | Suitable for team infrastructure | Generally not recommended | Recommended       |
 
-## 79. State vs. Backend vs. Locking — Quick Comparison
+## 80. State vs. Backend vs. Locking — Quick Comparison
 
 ```text
 Terraform State
@@ -2834,10 +2811,12 @@ Terraform State
       v
 What does Terraform manage?
 
+
 Backend
       |
       v
 Where is the State stored?
+
 
 State Locking
       |
@@ -2864,7 +2843,7 @@ S3 Backend
     +── IAM Access Control
 ```
 
-## 80. Production State Architecture
+## 81. Production State Architecture
 
 A typical AWS Terraform architecture can look like:
 
@@ -2892,27 +2871,27 @@ A typical AWS Terraform architecture can look like:
                  +----------+----------+
                  |                     |
                  v                     v
-        terraform.tfstate       .tflock
+         terraform.tfstate          .tflock
                  |
                  v
-          AWS Infrastructure
+        AWS Infrastructure
 ```
 
 Security controls:
 
 ```text
-                 S3 Backend
+                S3 Backend
                      |
         +------------+------------+
         |            |            |
         v            v            v
-      IAM       Encryption    Versioning
+       IAM       Encryption   Versioning
         |
         v
  Least Privilege
 ```
 
-## 81. Separate State by Environment
+## 82. Separate State by Environment
 
 For larger environments, State should generally be separated according to appropriate infrastructure and lifecycle boundaries.
 
@@ -2935,7 +2914,7 @@ This reduces blast radius and improves operational isolation.
 
 The exact State structure should reflect organizational architecture.
 
-## 82. Separate State by Component
+## 83. Separate State by Component
 
 Large organizations may also separate State according to infrastructure components.
 
@@ -2978,7 +2957,7 @@ and:
 Unnecessarily fragmented State
 ```
 
-## 83. Practical Team Scenario
+## 84. Practical Team Scenario
 
 Consider:
 
@@ -3026,7 +3005,7 @@ Terraform acquires the State lock, performs the operation, updates State, and re
 
 If Engineer B attempts a conflicting State-changing operation at the same time, Engineer B cannot acquire the same State lock simultaneously.
 
-## 84. Lab Validation Checklist
+## 85. Lab Validation Checklist
 
 After completing the practical portion, verify:
 
@@ -3055,9 +3034,9 @@ After completing the practical portion, verify:
 [ ] S3 versioning is enabled where required
 ```
 
-## 85. Production Best Practices
+## 86. Production Best Practices
 
-### 85.1 Keep State Out of Git
+### 86.1 Keep State Out of Git
 
 Never normally commit:
 
@@ -3066,7 +3045,7 @@ terraform.tfstate
 terraform.tfstate.*
 ```
 
-### 85.2 Use Remote State for Shared Infrastructure
+### 86.2 Use Remote State for Shared Infrastructure
 
 For team-managed AWS infrastructure:
 
@@ -3078,7 +3057,7 @@ Native S3 State Locking
 
 is the recommended architecture for this project.
 
-### 85.3 Enable State Locking
+### 86.3 Enable State Locking
 
 Use:
 
@@ -3088,7 +3067,7 @@ use_lockfile = true
 
 for new S3 backend configurations.
 
-### 85.4 Secure the S3 Bucket
+### 86.4 Secure the S3 Bucket
 
 Use:
 
@@ -3106,7 +3085,7 @@ Versioning
 Audit Controls
 ```
 
-### 85.5 Use Least Privilege
+### 86.5 Use Least Privilege
 
 Grant only the required permissions to:
 
@@ -3114,7 +3093,7 @@ Grant only the required permissions to:
 * CI/CD identities
 * Authorized operators
 
-### 85.6 Protect Credentials
+### 86.6 Protect Credentials
 
 Avoid hard-coded credentials.
 
@@ -3130,7 +3109,7 @@ Workload Identity
 
 as appropriate.
 
-### 85.7 Commit `.terraform.lock.hcl`
+### 86.7 Commit `.terraform.lock.hcl`
 
 Commit:
 
@@ -3144,7 +3123,7 @@ Do not commit:
 .terraform/
 ```
 
-### 85.8 Use Separate State Boundaries
+### 86.8 Use Separate State Boundaries
 
 Separate State according to:
 
@@ -3156,7 +3135,7 @@ Separate State according to:
 
 when appropriate.
 
-### 85.9 Do Not Disable Locking Routinely
+### 86.9 Do Not Disable Locking Routinely
 
 Avoid:
 
@@ -3166,7 +3145,7 @@ Avoid:
 
 unless there is a well-understood and justified reason.
 
-### 85.10 Treat State Operations as High-Risk Operations
+### 86.10 Treat State Operations as High-Risk Operations
 
 Commands such as:
 
@@ -3177,7 +3156,7 @@ terraform force-unlock
 
 should be treated as operationally sensitive.
 
-## 86. Current vs. Legacy Approaches
+## 87. Current vs. Legacy Approaches
 
 Terraform State management has evolved.
 
@@ -3223,17 +3202,17 @@ S3 Backend
 
 Existing DynamoDB-backed environments should be migrated deliberately rather than changed casually.
 
-## 87. Interview Explanation
+## 88. Interview Explanation
 
 A concise interview explanation is:
 
-> **Terraform State is Terraform's record of the infrastructure it manages. It maintains the relationship between Terraform resource instances and real infrastructure objects and provides information Terraform uses during operations such as `plan`, `apply`, and `destroy`.**
+> Terraform State is Terraform's record of the infrastructure it manages. It maintains the relationship between Terraform resource instances and real infrastructure objects and provides information Terraform uses during operations such as `plan`, `apply`, and `destroy`.
 >
-> **For team environments, we generally should not store Terraform State in Git because State can contain sensitive information and Git does not provide Terraform State locking. Instead, we use a remote backend such as Amazon S3 to centrally store State.**
+> For team environments, we generally should not store Terraform State in Git because State can contain sensitive information and Git does not provide Terraform State locking. Instead, we use a remote backend such as Amazon S3 to centrally store State.
 >
-> **State locking prevents multiple Terraform operations from modifying the same State simultaneously. For current S3 backend configurations, native S3 locking can be enabled with `use_lockfile = true`. DynamoDB-based S3 locking is a legacy/deprecated approach for new configurations.**
+> State locking prevents multiple Terraform operations from modifying the same State simultaneously. For current S3 backend configurations, native S3 locking can be enabled with `use_lockfile = true`. DynamoDB-based S3 locking is a legacy/deprecated approach for new configurations.
 
-## 88. Interview Questions and Answers
+## 89. Interview Questions and Answers
 
 ### Q1. What is Terraform State?
 
@@ -3377,7 +3356,7 @@ It removes a resource from Terraform State without necessarily destroying the co
 
 It manually removes a Terraform State lock when the lock is confirmed to be stale and automatic unlocking failed. It should be used carefully.
 
-## 89. Scenario-Based Interview Questions
+## 90. Scenario-Based Interview Questions
 
 ### Scenario 1 — Two Engineers Run `terraform apply`
 
@@ -3448,7 +3427,7 @@ No.
 
 It indicates a legacy DynamoDB-based S3 locking configuration. We should understand the existing environment, review the migration approach, test the change, and migrate deliberately.
 
-## 90. Lab Cleanup
+## 91. Lab Cleanup
 
 After completing the lab, destroy the Terraform-managed infrastructure to avoid unnecessary AWS charges.
 
@@ -3470,7 +3449,7 @@ Confirm when prompted:
 yes
 ```
 
-## 91. Verify Terraform Resources Were Destroyed
+## 92. Verify Terraform Resources Were Destroyed
 
 Run:
 
@@ -3482,7 +3461,7 @@ The previously managed resources should no longer be present after successful de
 
 Also verify the AWS EC2 resources as appropriate.
 
-## 92. Remove the Lab State
+## 93. Remove the Lab State
 
 Only after:
 
@@ -3503,7 +3482,7 @@ aws s3 rm \
 
 If versioning is enabled, remember that deleting the current object does not necessarily permanently remove previous versions.
 
-## 93. Remove the Lab S3 Bucket
+## 94. Remove the Lab S3 Bucket
 
 If the bucket was created exclusively for this lab and is no longer required, remove its contents:
 
@@ -3520,9 +3499,9 @@ aws s3 rb s3://YOUR-BUCKET-NAME
 
 Only perform this when the bucket is dedicated to the lab.
 
-> **Never delete a shared or production Terraform State bucket as part of routine lab cleanup.**
+> Never delete a shared or production Terraform State bucket as part of routine lab cleanup.
 
-## 94. Backend Decommissioning Checklist
+## 95. Backend Decommissioning Checklist
 
 Before deleting a State bucket, confirm:
 
@@ -3538,7 +3517,7 @@ Before deleting a State bucket, confirm:
 
 Backend infrastructure should be treated separately from application infrastructure.
 
-## 95. GitHub Repository Expectations
+## 96. GitHub Repository Expectations
 
 The repository should contain Terraform source code and documentation:
 
@@ -3580,7 +3559,7 @@ Do not commit:
 └── Saved plan files
 ```
 
-## 96. Final Mental Model
+## 97. Final Mental Model
 
 The complete Terraform State architecture can be remembered as:
 
@@ -3593,7 +3572,7 @@ The complete Terraform State architecture can be remembered as:
           +---------------+---------------+
           |                               |
           v                               v
-     Terraform State              Real Infrastructure
+    Terraform State              Real Infrastructure
           |                               |
           +---------------+---------------+
                           |
@@ -3601,7 +3580,7 @@ The complete Terraform State architecture can be remembered as:
                     Desired Changes
                           |
                           v
-                   terraform apply
+                    terraform apply
                           |
                           v
                     Updated State
@@ -3609,10 +3588,10 @@ The complete Terraform State architecture can be remembered as:
                           v
                      S3 Backend
                           |
-              +-----------+-----------+
-              |                       |
-              v                       v
-       terraform.tfstate        terraform.tfstate.tflock
+               +-----------+-----------+
+               |                       |
+               v                       v
+       terraform.tfstate    terraform.tfstate.tflock
                                 Native S3 Lock
 ```
 
@@ -3624,10 +3603,12 @@ Terraform State
       v
 Tracks Terraform-managed infrastructure
 
+
 Remote Backend
       |
       v
 Stores State centrally
+
 
 State Locking
       |
@@ -3654,7 +3635,7 @@ S3 Backend
     +── IAM Access Control
 ```
 
-## 97. Core Takeaways
+## 98. Core Takeaways
 
 Terraform State is fundamental to Terraform.
 
@@ -3720,9 +3701,9 @@ DynamoDB-based State locking remains important historical knowledge for existing
 
 The most important operational principle is:
 
-> **Terraform source code belongs in version control; Terraform State belongs in a properly secured remote backend.**
+> Terraform source code belongs in version control; Terraform State belongs in a properly secured remote backend.
 
-## 98. Section Completion Checklist
+## 99. Section Completion Checklist
 
 Before considering this section complete, we should be able to explain:
 
@@ -3765,7 +3746,7 @@ Before considering this section complete, we should be able to explain:
 [✓] Terraform State interview questions
 ```
 
-## 99. Summary
+## 100. Summary
 
 Terraform State is the foundation that allows Terraform to understand what infrastructure it manages.
 
@@ -3798,4 +3779,4 @@ Remote S3 Backend
 
 This architecture provides a centralized and collaborative foundation for Terraform State management while keeping sensitive State separate from the Terraform source repository.
 
-**This completes the Terraform State, Remote Backend, and State Locking section.**
+This completes the **Terraform State, Remote Backend, and State Locking** section.
